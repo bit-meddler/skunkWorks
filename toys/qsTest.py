@@ -7,7 +7,7 @@ def part( array, lo_idx, hi_idx ):
     pivot = array[ hi_idx ]
     
     print( "Pivoting {} between {} and {}".format( pivot, lo_idx, hi_idx ) )
-    for i in range( lo_idx, hi_idx-1 ):
+    for i in range( lo_idx, hi_idx ):
         if( array[i] <= pivot ):
             idx += 1
             # swap
