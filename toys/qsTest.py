@@ -4,9 +4,10 @@ Toy quicksort implementation
 
 def part( array, lo_idx, hi_idx ):
     idx = lo_idx - 1
-    pivot = (array[ lo_idx ] + array[ hi_idx ]) / 2
-    
-    for i in range( lo_idx, hi_idx ):
+    cnt = (hi_idx - lo_idx) / 2
+    pivot = (array[ lo_idx ] + array[ hi_idx ] + array[ cnt ]) / 3
+    print( "Pivoting {}".format( pivot ) )
+    for i in range( lo_idx, hi_idx+1 ):
         if( array[i] <= pivot ):
             idx += 1
             # swap
