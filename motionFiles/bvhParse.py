@@ -3,37 +3,15 @@
 """
 import numpy as np
 
-
-class SkeletonData( object ):
-    
-    def __init__( self ):
-        self.joint_names   = [] # s List of Joint names, as encountered
-        self.joint_count   = 0  # i num joints encountered
-        self.joint_chans   = [] # i active DoFs of each joint in order like GIANT
-        self.chan_label    = [] # s label of each channel (root.tx etc)
-        self.joint_chanidx = [] # i idx of joint's channels
-        self.joint_parents = [] # i parent of joint at idx, [0]==-1 (world)
-        self.joint_LUT     = {} # s:i Dict of Name->Idx
-        self.joint_L_mats  = [] # np list of 3x4 Local Matrix
-        self.anim = AnimData()  # object of chanel data
-        
-        
-class AnimData( object ):
-    
-    def __init__( self ):
-        self.frame_rate  = 0  # fps
-        self.frame_count = 0  # num frames
-        self.frame_durr  = 0  # durration of a frame (for playback)
-        self.frames      = [] # frames x channels array
-
-
+from animTypes import SkeletonData, AnimData
 
 CH_NAMES = [ "Xposition", "Yposition", "Zposition",
              "Xrotation", "Yrotation", "Zrotation" ]
 MY_NAMES = [ ".tx", ".ty", ".tz", ".rx", ".ry", ".rz" ]
 
 def _osToL( offset ):
-    mat = np.zeros( (3,4), dtype=np.float32 )
+    # BVH Joints only have a positional offset, no 'base pose' is recorded
+    mat = np.zeros( (3,4),   dtype=np.float32 )
     mat[:3, :3] = np.eye( 3, dtype=np.float32 )
     mat[:,3] = map( float, offset )
     return mat
@@ -48,53 +26,65 @@ def readBVH( file_name ):
 
     skel = SkeletonData()
     
-    parent_id = -1
-    depth = 0
-    parent_stack = []
-    
     while( len( lines ) > 0 ):
         line = lines.pop().strip()
         if( "HIERARCHY" in line ):
             # start of skeleton definition
+            parent_id          = -1 # Global
+            depth              =  0
+            parent_stack       = []
             skel.joint_chanidx = [0]
+            
             line = lines.pop().strip()
             while( True ):
-                #print line
-                if( ("ROOT" in line) or ("JOINT" in line) ):
+                if( ("JOINT" in line) or ("ROOT" in line) ):
                     # part of joint hierarchy
                     cmd, joint_name = line.split()
-                    line = lines.pop()
+                    line = lines.pop().strip()
                     if( "{" in line ):
                         depth += 1
                     skel.joint_parents.append( parent_id )
-                    skel.joint_names.append( joint_name )
-                    my_id = len( skel.joint_names ) - 1
+                    skel.joint_names.append(  joint_name )
+                    # in BVH, joints come in 'evaluation order' - don't need Graph Traversal
+                    my_id = len( skel.joint_names ) - 1  
+                    skel.joint_LUT[ joint_name ] = my_id
+                                        
                     line = lines.pop() # Offset
                     offsets = line.split()[1:]
                     skel.joint_L_mats.append( _osToL( offsets ) )
+                    
                     line = lines.pop() # Channels
-                    ch_list = line.split()[2:]
+                    ch_list = line.split()[2:] # TAG Num ...
                     for ch in ch_list:
                         ch_i = CH_NAMES.index( ch )
                         skel.joint_chans.append( ch_i+1 )
                         skel.chan_label.append( joint_name + MY_NAMES[ ch_i ] )
                     skel.joint_chanidx.append( len( skel.joint_chans ) )
-                    skel.joint_LUT[ joint_name ] = my_id
+                    skel.joint_styles.append( len( ch_list ) )
+                    
                     parent_stack.append( parent_id )
                     parent_id = my_id
+                    
                     line = lines.pop().strip() # next element
+                    
                 if( "}" in line ):
                     depth -= 1
                     parent_id = parent_stack.pop()
                     line = lines.pop().strip() # next node or end of clause
+                    
                 if( "End Site" in line ):
-                    line = lines.pop()
-                    line = lines.pop()
-                    line = lines.pop()
-                    line = lines.pop().strip()
-                if( depth == 0 ):
+                    line = lines.pop() # {
+                    line = lines.pop() # 0 0 0
+                    line = lines.pop() # }
+                    skel.joint_styles[ parent_id ] = skel.JOINT_END
+                    line = lines.pop().strip() # next node or end of clause
+                    
+                if( depth == 0 ): # End of Hierarchy 
                     break
-                
+                    
+        # Tidy up
+        skel.joint_count = len( skel.joint_names )
+    
         if( "MOTION" in line ):
             # start of anim data
             frame_count = lines.pop().split()[1]
@@ -108,14 +98,16 @@ def readBVH( file_name ):
                 chan_data = map( float, line.split() )
                 skel.anim.frames.append( chan_data )
 
-            if( len( skel.anim.frames ) != skel.anim.frame_count ):
+            num_frames = len( skel.anim.frames )
+            if( num_frames != skel.anim.frame_count ):
                 print( "frame range miss-match" )
+                skel.anim.frame_count = num_frames
+            # conform to np array
             skel.anim.frames = np.array( skel.anim.frames, dtype=np.float32 )
             
-    # Tidy up
-    skel.joint_count = len( skel.joint_names )
     return skel
 
 if( __name__ == "__main__" ):
     s = readBVH( "171025_Guy_ROM_body_01.bvh" )
-    
+    for i, (name, type) in enumerate( zip( s.joint_names, s.joint_styles ) ):
+        print name, type, ":", s.joint_chans[ s.joint_chanidx[i] : s.joint_chanidx[i+1] ]
