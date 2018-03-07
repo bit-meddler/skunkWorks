@@ -9,13 +9,13 @@ class SkeletonData( object ):
     def __init__( self ):
         self.joint_names   = [] # s List of Joint names, as encountered
         self.joint_count   = 0  # i num joints encountered
-        self.joint_chans   = [] # i active DoFs of each joint in order
+        self.joint_chans   = [] # i active DoFs of each joint in order like GIANT
         self.chan_label    = [] # s label of each channel (root.tx etc)
         self.joint_chanidx = [] # i idx of joint's channels
         self.joint_parents = [] # i parent of joint at idx, [0]==-1 (world)
         self.joint_LUT     = {} # s:i Dict of Name->Idx
-        self.joint_L_mats  = [] # np list of 4x4 Local Matrix
-        self.anim = AnimData()
+        self.joint_L_mats  = [] # np list of 3x4 Local Matrix
+        self.anim = AnimData()  # object of chanel data
         
         
 class AnimData( object ):
@@ -23,6 +23,7 @@ class AnimData( object ):
     def __init__( self ):
         self.frame_rate  = 0  # fps
         self.frame_count = 0  # num frames
+        self.frame_durr  = 0  # durration of a frame (for playback)
         self.frames      = [] # frames x channels array
 
 
@@ -31,9 +32,9 @@ CH_NAMES = [ "Xposition", "Yposition", "Zposition",
              "Xrotation", "Yrotation", "Zrotation" ]
 MY_NAMES = [ ".tx", ".ty", ".tz", ".rx", ".ry", ".rz" ]
 
-def osToL( offset ):
+def _osToL( offset ):
     mat = np.zeros( (3,4), dtype=np.float32 )
-    mat[:3, :3] = np.eye(3)
+    mat[:3, :3] = np.eye( 3, dtype=np.float32 )
     mat[:,3] = map( float, offset )
     return mat
 
@@ -43,7 +44,7 @@ def readBVH( file_name ):
     fh = open( file_name, "r" )
     lines = fh.readlines()
     fh.close()
-    lines.reverse()
+    lines.reverse() # so we can 'pop' through the lines
 
     skel = SkeletonData()
     
@@ -70,7 +71,7 @@ def readBVH( file_name ):
                     my_id = len( skel.joint_names ) - 1
                     line = lines.pop() # Offset
                     offsets = line.split()[1:]
-                    skel.joint_L_mats.append( osToL( offsets ) )
+                    skel.joint_L_mats.append( _osToL( offsets ) )
                     line = lines.pop() # Channels
                     ch_list = line.split()[2:]
                     for ch in ch_list:
@@ -79,11 +80,11 @@ def readBVH( file_name ):
                         skel.chan_label.append( joint_name + MY_NAMES[ ch_i ] )
                     skel.joint_chanidx.append( len( skel.joint_chans ) )
                     skel.joint_LUT[ joint_name ] = my_id
-                    parent_stack.append( my_id )
+                    parent_stack.append( parent_id )
+                    parent_id = my_id
                     line = lines.pop().strip() # next element
                 if( "}" in line ):
                     depth -= 1
-                    print depth, skel.joint_names[parent_stack[-1]]
                     parent_id = parent_stack.pop()
                     line = lines.pop().strip() # next node or end of clause
                 if( "End Site" in line ):
@@ -112,6 +113,7 @@ def readBVH( file_name ):
             skel.anim.frames = np.array( skel.anim.frames, dtype=np.float32 )
             
     # Tidy up
+    skel.joint_count = len( skel.joint_names )
     return skel
 
 if( __name__ == "__main__" ):
