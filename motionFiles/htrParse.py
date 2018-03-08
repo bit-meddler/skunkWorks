@@ -33,6 +33,15 @@ def _formRot( rx, ry, rz, order="XYZ" ):
     cy, sy = np.cos( ry ), np.sin( ry )
     cz, sz = np.cos( rz ), np.sin( rz )
     
+    X[2,2], X[3,3] =  cx, cx
+    X[2,3], X[3,2] = -sx, sx
+    
+    Y[1,1], Y[3,3] = cy,  cy
+    Y[1,3], Y[3,1] = sy, -sy
+    
+    Z[1,1], Z[2,2] =  cy, cy
+    Z[1,2], Z[2,1] = -sz, sz
+    
     # Post multiplying
     order.reverse()
     for ax in order:
@@ -71,12 +80,16 @@ def readHTR( file_name ):
             # fps, data frames, default rot order (reversed!)
             while( True ):
                 line = lines.pop().strip()
+                if( "[" in line:
+                    break
                 if( "NumSegments" in line:
                      _, header_joints = line.split()
                 if( "NumFrames" in line:
                      _, header_frames = line.split()
                 if( "DataFrameRate" in line:
                      _, header_rate = line.split()
+                     skel.anim.frame_rate = header_rate
+                     skel.anim.frame_durr = 1.0 / header_rate
                 if( "EulerRotationOrder" in line:
                     _, header_rot_order = line.split()
                     header_rot_order.reverse() # Assuming this is reversed!
@@ -88,8 +101,7 @@ def readHTR( file_name ):
                     pass #  Y
                 if( "BoneLengthAxis" in line:
                     pass #  Y
-                if( "[" in line:
-                    break
+    
     
         if( "SegmentNames&Hierarchy" in line ):
             # Child Parent pairs
@@ -125,7 +137,8 @@ def readHTR( file_name ):
                 if p_name not None:
                     p_idx = skel.joint_LUT[ p_name ]
                 self.joint_parents[ skel.joint_LUT[ joint ] ] = p_idx
-                
+           
+           
         if( "BasePosition" in line ):
             sken.joint_L_mats = np.zeros( (skel.joint_count,3,4), dtype=np.float32 )
             while( True ):
@@ -142,22 +155,25 @@ def readHTR( file_name ):
                 rz = ROT_CONVERT[ header_rot_units ]( rz )
                 M = _formRot( rx, ry, rz, header_rot_order )
                 skel.joints_L_mats[ j_id, :3, :3 ] = M
-                skel.joints_L_mats[ j_id, :,   3 ] = [ tx, ty, tz ]
+                skel.joints_L_mats[ j_id, :, 3 ] = [ tx, ty, tz ]
             # Last Hierarchy section
             break
             
-    # Tidy up skeleton?
-    
-    line = lines.pop().strip()
+    skel.anim.frames = np.zeros( (header_frames, skel.joint_count, 6 ) )
     while( len( lines ) > 0 ):
-        if( "[" in line ):
             # [ch name]
+            name = line[ 1:-1 ] # escape square brackets
+            if( name == "EndOfFile" ):
+                break
+            # get joint's animation    
+            j_id = skel.joint_LUT[ name ]
+            
             line = lines.pop().strip()
-            # ch data: f, tx, ty, tz, r?, r?, r?, 1.0
             # populate basepose joint offset from t datas
-            if( not "]" in line ):
+            while( not "]" in line ):
                 # accumulate ch data
-                pass
+                toks = line.split()
+                skel.anim.frames[ int( toks[ 0 ] ), j_id, : ] = map( float, toks[1:-1 )
             
     # Conform to np arrays
     return skel
