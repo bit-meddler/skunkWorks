@@ -8,7 +8,16 @@ from animTypes import SkeletonData, AnimData
 
 MY_NAMES = [ ".tx", ".ty", ".tz", ".rx", ".ry", ".rz" ]
 
-
+def _dfs( graph, root ):
+    path = []
+    q = [ root ]
+    while( len( q ) > 0 ):
+        leaf = q.pop( 0 )
+        if leaf not in path:
+            path.append( leaf )
+            q = graph[ leaf ] + q
+    return path
+    
 def readHTR( file_name ):
 
     fh = open( file_name, "r" )
@@ -26,12 +35,61 @@ def readHTR( file_name ):
             
         if( "Header" in line ):
             # fps, data frames, default rot order (reversed!)
-            pass
+            while( True ):
+                line = lines.pop().strip()
+                if( "NumSegments" in line:
+                    pass # 36
+                if( "NumFrames" in line:
+                    pass #  120
+                if( "DataFrameRate" in line:
+                    pass #  120
+                if( "EulerRotationOrder" in line:
+                    pass #  ZYX
+                if( "CalibrationUnits" in line:
+                    pass #  mm
+                if( "RotationUnits" in line:
+                    pass #  Degrees
+                if( "GlobalAxisofGravity" in line:
+                    pass #  Y
+                if( "BoneLengthAxis" in line:
+                    pass #  Y
+                if( "[" in line:
+                    break
     
         if( "SegmentNames&Hierarchy" in line ):
             # Child Parent pairs
-            pass
+            s_graph = {"GLOBAL":[]}
+            rev_LUT = []
+            while( True ):
+                line = lines.pop().strip()
+                if( "[" in line ):
+                    break
+                child, parent = line.split()
+                if parent in s_graph:
+                    s_graph[ parent ].append( child )
+                else:
+                    s_graph[ parent ] = [ child ]
+                if child not in s_graph:
+                    s_graph[ child ] = []
+                rev_LUT[ child ] = parent
+                
+            root = s_graph[ "GLOBAL" ][0] # assume one root
+            skel.joint_names = _dfs( s_graph, root )
+            skel.joint_count = len( skel.joint_names )
+            # make LUT
+            for i, name in enumerate( skel.joint_names ):
+                skel.joint_LUT[ name ] = i
             
+            # make parent_list
+            del( rev_LUT[ "GLOBAL" ] )
+            rev_LUT[ root ] == None
+            for joint in skel.joint_names:
+                p_idx = -1
+                p_name = rev_LUT[ joint ]
+                if p_name not None:
+                    p_idx = skel.joint_LUT[ p_name ]
+                self.joint_parents[ skel.joint_LUT[ joint ] ] = p_idx
+                
         if( "BasePosition" in line ):
             # name, 0, 0, 0, r?, r?, r?, 1
             #
