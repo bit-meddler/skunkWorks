@@ -45,11 +45,11 @@ class SkeletonData( object ):
                 else:
                     cv, sv = np.cos( chan_data[i] ), np.sin( chan_data[i] )
                     if( op == 3 ): # X
-                        M = M[:3,:3] * np.array( [[1.,0.,0.], [0.,cv,-sv], [0.,sv,cv]],  dtype=np.float32 )
+                        M = M[:,:3] * np.array( [[1.,0.,0.], [0.,cv,-sv], [0.,sv,cv]],  dtype=np.float32 )
                     if( op == 4 ): # Y
-                        M = M[:3,:3] * np.array( [[cv,0.,sv], [0.,1.,-0.], [-sv,cv,1.]], dtype=np.float32 )
+                        M = M[:,:3] * np.array( [[cv,0.,sv], [0.,1.,-0.], [-sv,cv,1.]], dtype=np.float32 )
                     if( op == 5 ): # Z
-                        M = M[:3,:3] * np.array( [[cv,-sv.,0.],[sv,cv,0.], [0.,0.,1.]],  dtype=np.float32 )
+                        M = M[:,:3] * np.array( [[cv,-sv.,0.],[sv,cv,0.], [0.,0.,1.]],  dtype=np.float32 )
                         
             p_idx = self.jpint_parents[ j_idx ]
             if( p_idx >= 0 ):
