@@ -33,18 +33,17 @@ def _formRot( rx, ry, rz, order="XYZ" ):
     cy, sy = np.cos( ry ), np.sin( ry )
     cz, sz = np.cos( rz ), np.sin( rz )
     
-    X[2,2], X[3,3] =  cx, cx
-    X[2,3], X[3,2] = -sx, sx
+    X[1,1], X[2,2] =  cx, cx
+    X[1,2], X[2,1] = -sx, sx
     
-    Y[1,1], Y[3,3] = cy,  cy
-    Y[1,3], Y[3,1] = sy, -sy
+    Y[0,0], Y[2,2] = cy,  cy
+    Y[0,2], Y[2,0] = sy, -sy
     
-    Z[1,1], Z[2,2] =  cy, cy
-    Z[1,2], Z[2,1] = -sz, sz
+    Z[0,0], Z[1,1] =  cy, cy
+    Z[0,1], Z[1,0] = -sz, sz
     
     # Post multiplying
-    order.reverse()
-    for ax in order:
+    for ax in order[::-1]:
         if ax=="X":
             M *= X
         if ax=="Y":
@@ -80,33 +79,37 @@ def readHTR( file_name ):
             # fps, data frames, default rot order (reversed!)
             while( True ):
                 line = lines.pop().strip()
-                if( "[" in line:
+                if( "[" in line ):
                     break
-                if( "NumSegments" in line:
+                if( "NumSegments" in line ):
                      _, header_joints = line.split()
-                if( "NumFrames" in line:
+                     header_joints = int( header_joints )
+                if( "NumFrames" in line ):
                      _, header_frames = line.split()
-                if( "DataFrameRate" in line:
+                     header_frames = int( header_frames )
+                if( "DataFrameRate" in line ):
                      _, header_rate = line.split()
+                     header_rate = int( header_rate )
                      skel.anim.frame_rate = header_rate
                      skel.anim.frame_durr = 1.0 / header_rate
-                if( "EulerRotationOrder" in line:
+                if( "EulerRotationOrder" in line ):
                     _, header_rot_order = line.split()
-                    header_rot_order.reverse() # Assuming this is reversed!
-                if( "CalibrationUnits" in line:
+                    # Assuming this is reversed!
+                    header_rot_order = header_rot_order[::-1]
+                if( "CalibrationUnits" in line ):
                     pass #  mm
-                if( "RotationUnits" in line:
+                if( "RotationUnits" in line ):
                     _, header_rot_units = line.split()
-                if( "GlobalAxisofGravity" in line:
+                if( "GlobalAxisofGravity" in line ):
                     pass #  Y
-                if( "BoneLengthAxis" in line:
+                if( "BoneLengthAxis" in line ):
                     pass #  Y
     
     
         if( "SegmentNames&Hierarchy" in line ):
             # Child Parent pairs
             s_graph = {"GLOBAL":[]}
-            rev_LUT = []
+            rev_LUT = {}
             while( True ):
                 line = lines.pop().strip()
                 if( "[" in line ):
@@ -129,18 +132,18 @@ def readHTR( file_name ):
                 skel.joint_LUT[ name ] = i
             
             # make parent_list
-            del( rev_LUT[ "GLOBAL" ] )
-            rev_LUT[ root ] == None
+            rev_LUT[ root ] = None
+            skel.joint_parents = [ None ] * skel.joint_count
             for joint in skel.joint_names:
                 p_idx = -1
                 p_name = rev_LUT[ joint ]
-                if p_name not None:
+                if( p_name != None ):
                     p_idx = skel.joint_LUT[ p_name ]
-                self.joint_parents[ skel.joint_LUT[ joint ] ] = p_idx
+                skel.joint_parents[ skel.joint_LUT[ joint ] ] = p_idx
            
            
         if( "BasePosition" in line ):
-            sken.joint_L_mats = np.zeros( (skel.joint_count,3,4), dtype=np.float32 )
+            skel.joint_L_mats = np.zeros( (skel.joint_count,3,4), dtype=np.float32 )
             while( True ):
                 line = lines.pop().strip()
                 if( "[" in line ):
@@ -154,32 +157,38 @@ def readHTR( file_name ):
                 ry = ROT_CONVERT[ header_rot_units ]( ry )
                 rz = ROT_CONVERT[ header_rot_units ]( rz )
                 M = _formRot( rx, ry, rz, header_rot_order )
-                skel.joints_L_mats[ j_id, :3, :3 ] = M
-                skel.joints_L_mats[ j_id, :, 3 ] = [ tx, ty, tz ]
+                skel.joint_L_mats[ j_id, :3, :3 ] = M
+                skel.joint_L_mats[ j_id, :, 3 ] = [ tx, ty, tz ]
             # Last Hierarchy section
             break
-            
-    skel.anim.frames = np.zeros( (header_frames, skel.joint_count, 6 ) )
+        
+    # Tidy up
+    #   chan_label
+    #   joint_chanidx
+    #   joint_chans
+    
+    skel.anim.frames = np.zeros( ( header_frames, skel.joint_count, 6 ) )
     while( len( lines ) > 0 ):
-            # [ch name]
-            name = line[ 1:-1 ] # escape square brackets
-            if( name == "EndOfFile" ):
-                break
-            # get joint's animation    
-            j_id = skel.joint_LUT[ name ]
-            
+        # [ch name]
+        name = line[ 1:-1 ] # escape square brackets
+        if( name == "EndOfFile" ):
+            break
+        # get joint's animation    
+        j_id = skel.joint_LUT[ name ]
+        print name
+        line = lines.pop().strip()
+        # populate basepose joint offset from t datas
+        while( not "]" in line ):
+            # accumulate ch data
+            toks = line.split()
+            frame = int( toks[ 0 ] ) - 1
+            skel.anim.frames[ frame, j_id, : ] = map( float, toks[1:-1] )
             line = lines.pop().strip()
-            # populate basepose joint offset from t datas
-            while( not "]" in line ):
-                # accumulate ch data
-                toks = line.split()
-                skel.anim.frames[ int( toks[ 0 ] ), j_id, : ] = map( float, toks[1:-1 )
-            
-    # Conform to np arrays
+    
     return skel
 
     
 if( __name__ == "__main__" ):
-    s = readBVH( "171025_Guy_ROM_body_01.htr" )
+    s = readHTR( "171025_Guy_ROM_body_01.htr" )
     for i, (name, type) in enumerate( zip( s.joint_names, s.joint_styles ) ):
         print name, type, ":", s.joint_chans[ s.joint_chanidx[i] : s.joint_chanidx[i+1] ]
