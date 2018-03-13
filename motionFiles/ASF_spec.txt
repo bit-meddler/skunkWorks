@@ -1,0 +1,257 @@
+Acclaim Skeleton File Definition V1.10                                                                                              M. Schafer May 94
+
+
+This file format defines a skeleton in terms of its shape,
+hierarchy, and the properties of its joints and bones. It is
+intended as a human readable exchange format between different
+skeletal animation systems based on joint rotation data. This
+is the format used by the Acclaim Motion Capture System. Although
+it is also well suited for positional data only systems. Due to
+the rotational basis of Acclaim's motion capture data, motion data
+files are matched to specific skeletons. They will not work as
+expected on arbitrary skeletons. Therefore this definition is
+necessary to ensure that motion data files will work as expected.
+This file does not define how the skeleton affects the skin. That
+information is vendor specific. It is recommended that Vendors are
+able to convert their skeletal system data structures to and from
+this format. Vendors may adopt this format as their own.
+
+
+The File format: (text)
+  
+     # comment, ignore text to end of line 
+     #  , commas and () parenthesis are used as whitespace. 
+     :version 1.10                              # float          (version of this file format) 
+     :name xxxxxxxxxxxxxxxxxxxx                 # string[50]     (name of skeleton) 
+     :units                                     #                (optional. unit definitions follow) 
+        mass 1.0                                # float          (multipliers for different unit systems) 
+        length 1.0                              # float          (eg. 2.54 - data in cm, local units in inches) 
+        angle rad                               # token          (rad or deg - degrees are default) 
+     :documentation                             #                (documentation follows) 
+       Place any notes here. 
+       Documentation is read until the next line that starts with a keyword.
+     :root 
+       axis xyz                                 # token          (rot. order for orientation offset) 
+       order tx ty tz rz ry rx                  # tokens         (order of transformation of root) 
+       position 0.0 0.0 0.0                     # float x3       (translation data for root node 
+                                                #                 to position the skeleton) 
+       orientation 0.0 0.0 0.0                  # float x3       (rotation data.  To orient the skeleton)
+
+     :bonedata                                  #                (definition data for all the bones) 
+       begin                                    #                (delimiter) 
+         id 1                                   # int            (opt. numeric id. can be used in place 
+                                                #                 of name for reference) 
+         name h_waist                           # string         (uses the body naming convention) 
+         direction 0.0 1.0 0.0                  # float x3       (direction vector of bone) 
+         length 3.0                             # float          (length of bone) 
+         axis 0.0 1.0 0.0 z y x                 # float x3 xyz   (the global orientation of the axis, the xyz 
+                                                #                 tokens specify order of rotation) 
+         bodymass 10.0                          # float          (opt. mass of skinbody assoc with this bone) 
+         cofmass 1.0                            # float          (opt. position of cofm along bone) 
+         dof tx ty tz rx ry rz l                # tokens         (only tokens that are needed for this bone 
+                                                #                 l stands for stretch along direction of bone) 
+         limits (-inf,inf)                      # float/token    (lower and upper limit for each degree of 
+                (-inf,inf)                      #                 freedom given above.  inf = infinity.) 
+                (-inf,inf) 
+                (-3.14, 3.14) 
+                (0.0,   3.14) 
+                (-1.0,  3.14) 
+                (0.5,   4.5) 
+       end
+
+       begin                                    # the next bone 
+         name h_R_hip 
+         direction 0.0 1.0 0.0 
+         length 2.5 
+         axis 0.0 1.0 0.0 z x y 
+         dof rx l 
+         limits (-1.0 1.0) 
+                (2.5  4.0)                      # i.e. can't get any shorter. 
+       end 
+       "                                        # etc until all bones specified. 
+       "
+
+     :hierarchy 
+       begin 
+         root      h_waist h_R_hip h_L_hip      # parents followed by children 
+         h_waist h_torso_2                      # the root is implied as the first element although it is not 
+           " "                                  # a bone but a location 
+           " "                                  # etc until all heirarchy defined 
+       end
+
+     :skin "filename"                           # filename of skin to use on this skeleton 
+           "filename"                           # a second skin. E.g. block figure, med res and high res 
+             "   "                              # skins. 
+
+             
+
+Notes:
+
+Version, name, units, documentation appear before bonedata. 
+Bonedata appears before hierarchy.
+
+In bonedata: id or name must appear before any other data. 
+             limits must appear after dof.
+
+Root defines the base position and orientation of the entire 
+skeleton. When reading the heirarchy the first child of a 
+parent is the primary route thru the skeleton. The root is 
+implied as the first parent althoughit is really a node.
+
+Dof specification allows for xyz translation and rotation 
+as well as movement along the bone ("l"). This movement is 
+translation not scaling data. The root of the skeleton will 
+have xyz translation and rotation dof in order to position 
+and orient the skeleton in global space. If a skeleton is 
+designed to work with positional data only then only the xyz 
+translation dof's will be specified. The vendors system will 
+then have to offer Inverse Kinematic support to solve the 
+rotational issues.
+
+Skins are defined in order to provide a link between a skeleton 
+and the skins it is able to manipulate. The method of manipulation 
+would be defined using another mechanism and is vendor specific.
+
+There are several elements of the file which are designed to make 
+the file more human readable. For example the bones orientation 
+is in global space although the skeleton is hierarchical. The 
+internal representation of the skeleton can follow whichever system 
+the vendor desires.
+
+Note that independent rotation order can be simulated by having 
+three zero length bones at the same location. However this same 
+system will confuse users if they are trying to layer Inverse 
+kinematic data over motion captured data. Correct implementation 
+of independent ordering for motion captured data is beneficial.
+
+Version 1.10 allows for mass in bone calculations. This is optional.
+
+Systems which do not implement dof limits may ignore them. If they 
+do they should use reasonable defaults in their files. 
+
+
+Bone Naming Conventions:
+
+This section details the naming conventions used by the Acclaim process. 
+Individual vendors can choose to use this system if they wish. If not 
+then vendors should be aware that bone names can get quite long and 
+should allow for this in their systems.
+
+The naming convention is necessary for two reasons, neither of which may 
+concern a given vendor: 
+ 
+
+To easily identify a given bone by its name.
+To enable automatic mapping of motion data to arbitrary skeletons using
+
+Acclaim drivers or vendor specific drivers. 
+ 
+ 
+Naming:
+
+There are two conventions, the second is a short form. They can be mixed.
+
+Bone names are case insensitive but should be lowercase. 
+  
+Bone names have no spaces in them.
+
+The Class is optional. If not included it defaults to h.
+
+Words in names are separated with underscores.
+
+Bone names must include Bone qualifiers. All other words are optional.
+
+Bone names ending with underscore number (_1) indicate that there are 
+multiple segments which motion is divided across. (I.e. h_torso_1)
+
+In the case of multiple limbs or digits, use a segment number, 
+spelled out. (I.e. L_finger_one)
+
+If there are multiple bones in a segment that require individual 
+motion data then use a position indicator. (I.e. L_up_finger_one) 
+ 
+
+             Syntax: 
+                     class_side_position_bone_segment_division 
+             Class: 
+                     h          - Human class of naming. 
+             Side: 
+                     left       (L)    - Bones on left side. 
+                     right      (R)    - Bones on right side. 
+             Position: 
+                     up         (u)    - Bones that are closest to torso or oldest ancestor. 
+                     mid        (m)    - Middle bones. 
+                     low        (l)    - Bones that are furthest from torso.
+
+             Bone: 
+                     basebone          (base)    possible extra bone to align skeleton axes with global 
+                     head 
+                     neck 
+                     shoulder          (shld) 
+                     torso             (trs) 
+                     waist             (wst) 
+                     hip 
+                     leg 
+                     foot 
+                     toe 
+                     toes                        use when modelling all toes together. 
+                     arm 
+                     hand 
+                     finger            (f) 
+                     fingers           (fngs)    use when modeling all fingers together. 
+             Segment: 
+                     one               (on)      use when dealing with multiple segments of the same 
+                     two               (tw)      type. If numbering toes,fingers 
+                     three             (th)      (finger_one = thumb, toe_one = big toe) 
+                       "               " 
+     Division: 
+            1                        A number at the end of a bone name indicates that a 
+            2                        set of angles will be divided amongst the bones. 
+            3                        (E.g. the torso or neck) 
+            4                        Start numbering with the oldest ancestor. 
+            "
+
+     Examples: 
+            h_waist 
+            h_torso_1                torso closest to waist 
+            h_torso_2                rotational data is spread across these bones 
+            h_left_up_arm            left upper arm 
+            h_L_fingers              all left fingers 
+            h_L_finger_one           thumb 
+            h_left_up_finger_one     segment of thumb closest to hand. 
+            L_l_toe_th               last bone on the third toe on left foot. (One with the 
+                                     nail) (fully contracted name)
+
+     Example: 
+               - human skeleton showing hierarchical nature and naming. (no individual fingers)
+
+               h_waist                                          Root node of skeleton 
+                 h_torso_1                                      These torsos divide one value evenly amongst 
+                   h_torso_2                                    them all. 
+                     h_torso_3 
+                       h_torso_4 
+                         h_torso_5 
+                           h_left_shoulder                      the shoulders branch off here. 
+                             h_left_up_arm 
+                               h_left_low_arm 
+                                 h_left_hand 
+                                   h_left_fingers 
+                           h_right_shoulder 
+                             h_right_up_arm 
+                               h_right_low_arm 
+                                 h_right_hand 
+                                   h_right_fingers 
+                           h_neck_1                             the neck has its rotations broken over two bones 
+                             h_neck_2 
+                               h_head 
+                 h_left_hip 
+                   h_left_up_leg 
+                     h_left_low_leg 
+                       h_left_foot 
+                         h_left_toes 
+                 h_right_hip 
+                   h_right_up_leg 
+                     h_right_low_leg 
+                       h_right_foot 
+                         h_right_toes 
+                 h_tail

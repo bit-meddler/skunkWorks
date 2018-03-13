@@ -56,7 +56,7 @@ class SkeletonData( object ):
                 self.joint_G_mats[ j_idx ][:,:3] = np.dot( self.joint_G_mats[ p_idx ][:,:3],  M[:,:3] )
             else:
                 self.joint_G_mats[ j_idx ][:,:3] = np.dot( world[:,:3],  M[:,:3] )
-
+            self.joint_G_mats[ j_idx ][:,3] = np.dot( M[:,:3], M[:,3] )
                 
     @staticmethod
     def _blank34():
