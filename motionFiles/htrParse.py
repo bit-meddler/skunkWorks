@@ -11,17 +11,7 @@ ROT_CONVERT = {
     "Degrees": lambda x: x,
     "Radians": np.radians,
 }
-
-def _dfs( graph, root ):
-    path = []
-    q = [ root ]
-    while( len( q ) > 0 ):
-        leaf = q.pop( 0 )
-        if leaf not in path:
-            path.append( leaf )
-            q = graph[ leaf ] + q
-    return path
-    
+   
     
 def _formRot( rx, ry, rz, order="XYZ" ):
     X = np.eye( 3 )
@@ -113,23 +103,25 @@ def readHTR( file_name ):
         # Topology
         if( "SegmentNames&Hierarchy" in line ):
             # Child Parent pairs
-            s_graph = {"GLOBAL":[]}
+            skel.joint_topo[ "GLOBAL" ] = []
             rev_LUT = {}
             while( True ):
                 line = lines.pop().strip()
                 if( "[" in line ): # New block
                     break
                 child, parent = line.split()
-                if parent in s_graph:
-                    s_graph[ parent ].append( child )
+                if parent in skel.joint_topo:
+                    skel.joint_topo[ parent ].append( child )
                 else:
-                    s_graph[ parent ] = [ child ]
-                if child not in s_graph:
-                    s_graph[ child ] = []
+                    skel.joint_topo[ parent ] = [ child ]
+                if child not in skel.joint_topo:
+                    skel.joint_topo[ child ] = []
                 rev_LUT[ child ] = parent
                 
-            root = s_graph[ "GLOBAL" ][0] # assume one root!
-            skel.joint_names = _dfs( s_graph, root )
+            root = skel.joint_topo[ "GLOBAL" ][0] # assume one root!
+            del( skel.joint_topo[ "GLOBAL" ] )
+            skel.joint_root = root
+            skel.joint_names = skel._remarshalTopo()
             skel.joint_count = len( skel.joint_names )
             
             # make LUT

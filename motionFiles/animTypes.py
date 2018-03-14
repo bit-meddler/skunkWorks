@@ -2,7 +2,9 @@
 """
 import numpy as np
 
+
 class SkeletonData( object ):
+
     # joint Draw styles - note, enum corresponds to DoF count
     JOINT_END   = 0 # end           | Lozenge
     JOINT_HINGE = 1 # r             | Trunion
@@ -12,22 +14,34 @@ class SkeletonData( object ):
     JOINT_COMP2 = 5 # r r r t t     | Shoulder... Ball on a plate?
     JOINT_FREE  = 6 # r r r t t t   | BoxBall
     
+    
     def __init__( self ):
-        self.joint_names   = [] # s   List of Joint names, as encountered
-        self.joint_count   = 0  # i   num joints encountered
-        self.joint_chans   = [] # i   active DoFs of each joint in order like GIANT
-        self.chan_label    = [] # s   label of each channel (root.tx etc)
-        self.joint_chanidx = [] # i   idx of joint's channels
-        self.joint_parents = [] # i   parent of joint at idx, [0]==-1 (world)
-        self.joint_LUT     = {} # s:i Dict of Name->Idx
-        self.joint_L_mats  = [] # np  list of 3x4 Local Matrix
-        self.joint_G_mats  = [] # np  list of 3x4 Global Matrix
-        self.joint_styles  = [] # i   list of joint styles, for drawing
+        # Joint Data
+        self.joint_names   = [] # [s]   List of Joint names, as encountered
+        self.joint_count   = 0  # i     num joints encountered
+        # Joint Channels
+        self.joint_chans   = [] # [i]   active DoFs of each joint in order like GIANT
+        self.chan_label    = [] # [s]   label of each channel (root.tx etc)
+        self.joint_chanidx = [] # [i]   idx of joint's channels
+        # Skel Topo
+        self.joint_parents = [] # [i]   parent of joint at idx, [0]==-1 (world)
+        self.joint_LUT     = {} # s:i   Dict of Name->Idx
+        self.joint_topo    = {} # s:[s] Dict of parent:[ children... ]
+        self.joint_root    = "" # s     name of root joint
+        # The maths
+        self.joint_L_mats  = [] # [np]  list of 3x4 Local Matrix
+        self.joint_G_mats  = [] # [np]  list of 3x4 Global Matrix
+        # Drawing
+        self.joint_styles  = [] # [i]   list of joint styles, for drawing
+        
+        # Animation
         self.anim = AnimData()  # obj of channel data
+        
 
-    def pose( self, chans ):
+    def poseDirect( self, chans ):
         """
             Based on supplied channels, pose the Skeleton's G_mats
+            Direct mapping of channel data -> joint channels
         """
         if( len( chans ) != len( self.joint_chans ) ):
             print( "channel data miss-match" )
@@ -43,6 +57,7 @@ class SkeletonData( object ):
                     #tx
                     M[op,3] = chan_data[ i ]
                 else:
+                    # another customer for skeleton maths
                     cv, sv = np.cos( chan_data[i] ), np.sin( chan_data[i] )
                     if( op == 3 ): # X
                         M = M[:,:3] * np.array( [[1.,0.,0.], [0.,cv,-sv], [0.,sv,cv]],  dtype=np.float32 )
@@ -58,10 +73,38 @@ class SkeletonData( object ):
                 self.joint_G_mats[ j_idx ][:,:3] = np.dot( world[:,:3],  M[:,:3] )
             self.joint_G_mats[ j_idx ][:,3] = np.dot( M[:,:3], M[:,3] )
                 
+                
+    def poseExp( self, chans ):
+        """ TODO:
+            Expression based posing.
+            Compute all channels based on channel data and an expression matrix.  This enables a 
+            Dimentionality reduction.  Example:  Direct solution for a spine of 5 joints = 20 chans
+            (5* rx, ry, rz, ty); expression bassed solution 5 chans ( ty, rx_lo, rx_hi, ry, rz, ty )
+            
+            This enables a 'Coarticulated' joint system, and or a rotation to be spread between joints
+        """
+        pass
+        
+        
     @staticmethod
     def _blank34():
+        # This needs to be in a skeleton math lib
         return np.array( [[1.,0.,0.,0],[0.,1.,0.,0],[0.,0.,1.,0]], dtype=np.float32 )
-
+    
+    
+    def _remarshalTopo( self ):
+        """
+            DFS of the skeleton's topology to return a 'computation order' list
+        """
+        path = []
+        q = [ self.joint_root ]
+        while( len( q ) > 0 ):
+            leaf = q.pop( 0 )
+            if leaf not in path:
+                path.append( leaf )
+                q = self.joint_topo[ leaf ] + q
+        return path
+        
     
 class AnimData( object ):
     
@@ -71,3 +114,11 @@ class AnimData( object ):
         self.frame_durr  = 0  # durration of a frame (for playback)
         self.frames      = [] # frames x channels array
 
+    def interpolateFrames( self, l_frame, r_frame, distance ):
+        """ TODO:
+            interpolate all channels between l & r frames, at the position that is
+            distance % between them.
+            
+            For now this will be a dumb linnear interpolation.
+        """
+        pass
