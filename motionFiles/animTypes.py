@@ -4,13 +4,13 @@ import numpy as np
 
 class SkeletonData( object ):
     # joint Draw styles - note, enum corresponds to DoF count
-    JOINT_END   = 0 # end
-    JOINT_HINGE = 1 # r
-    JOINT_HARDY = 2 # r r 
-    JOINT_BALL  = 3 # r r r
-    JOINT_COMP1 = 4 # r r r t
-    JOINT_COMP2 = 5 # r r r t t
-    JOINT_FREE  = 6 # r r r t t t
+    JOINT_END   = 0 # end           | Lozenge
+    JOINT_HINGE = 1 # r             | Trunion
+    JOINT_HARDY = 2 # r r           | Dbl Trunion
+    JOINT_BALL  = 3 # r r r         | Ball
+    JOINT_COMP1 = 4 # r r r t       | Spine... Ball with a Fin?
+    JOINT_COMP2 = 5 # r r r t t     | Shoulder... Ball on a plate?
+    JOINT_FREE  = 6 # r r r t t t   | BoxBall
     
     def __init__( self ):
         self.joint_names   = [] # s   List of Joint names, as encountered

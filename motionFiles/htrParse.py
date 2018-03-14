@@ -65,6 +65,7 @@ def readHTR( file_name ):
     
     line = lines.pop().strip()
     header_rot_order = "XYZ"
+    header_rot_chans = []
     header_rot_units = "Degrees"
     header_rate = -1
     header_frames = -1
@@ -75,11 +76,11 @@ def readHTR( file_name ):
         if( line == "" ):
             continue
             
+        # fps, data frames, default rot order (reversed!)
         if( "Header" in line ):
-            # fps, data frames, default rot order (reversed!)
             while( True ):
                 line = lines.pop().strip()
-                if( "[" in line ):
+                if( "[" in line ): # New block
                     break
                 if( "NumSegments" in line ):
                      _, header_joints = line.split()
@@ -96,6 +97,10 @@ def readHTR( file_name ):
                     _, header_rot_order = line.split()
                     # Assuming this is reversed!
                     header_rot_order = header_rot_order[::-1]
+                    # conv to 456
+                    for ax in header_rot_order:
+                        val = ord( ax.lower() ) - 116 # ord(x)=120 -> 4
+                        header_rot_chans.append( val )
                 if( "CalibrationUnits" in line ):
                     pass #  mm
                 if( "RotationUnits" in line ):
@@ -105,14 +110,14 @@ def readHTR( file_name ):
                 if( "BoneLengthAxis" in line ):
                     pass #  Y
     
-    
+        # Topology
         if( "SegmentNames&Hierarchy" in line ):
             # Child Parent pairs
             s_graph = {"GLOBAL":[]}
             rev_LUT = {}
             while( True ):
                 line = lines.pop().strip()
-                if( "[" in line ):
+                if( "[" in line ): # New block
                     break
                 child, parent = line.split()
                 if parent in s_graph:
@@ -141,17 +146,21 @@ def readHTR( file_name ):
                     p_idx = skel.joint_LUT[ p_name ]
                 skel.joint_parents[ skel.joint_LUT[ joint ] ] = p_idx
            
-           
+        # Basepose   
         if( "BasePosition" in line ):
             skel.joint_L_mats = np.zeros( (skel.joint_count,3,4), dtype=np.float32 )
+            skel.joint_chans = []
+            skel.joint_chanidx[ 0 ]
+            
             while( True ):
                 line = lines.pop().strip()
-                if( "[" in line ):
+                if( "[" in line ): # New block
                     break
                 # get base pose
                 toks = line.split()
+                j_name = toks[0]
+                j_id = skel.joint_LUT[ j_name ]
                 tx, ty, tz, rx, ry, rz, _ = map( float, toks[1:] )
-                j_id = skel.joint_LUT[ toks[0] ]
                 # Form L mats
                 rx = ROT_CONVERT[ header_rot_units ]( rx )
                 ry = ROT_CONVERT[ header_rot_units ]( ry )
@@ -159,19 +168,22 @@ def readHTR( file_name ):
                 M = _formRot( rx, ry, rz, header_rot_order )
                 skel.joint_L_mats[ j_id, :3, :3 ] = M
                 skel.joint_L_mats[ j_id, :, 3 ] = [ tx, ty, tz ]
+                # joint chans
+                chans = [ 1, 2, 3 ] + header_rot_chans
+                skel.joint_chans += chans
+                skel.joint_chanidx.append( len( skel.joint_chans ) )
+                for ch in chans:
+                    skel.chan_label.append( j_name + MY_NAMES[ ch ] )
+                    
             # Last Hierarchy section
             break
-        
-    # Tidy up
-    #   chan_label
-    #   joint_chanidx
-    #   joint_chans
-    
+            
+    # Channel data
     skel.anim.frames = np.zeros( ( header_frames, skel.joint_count, 6 ) )
     while( len( lines ) > 0 ):
         # [ch name]
         name = line[ 1:-1 ] # escape square brackets
-        if( name == "EndOfFile" ):
+        if( name == "EndOfFile" ): # End of block
             break
         # get joint's animation    
         j_id = skel.joint_LUT[ name ]
