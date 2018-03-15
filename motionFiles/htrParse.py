@@ -121,7 +121,7 @@ def readHTR( file_name ):
             root = skel.joint_topo[ "GLOBAL" ][0] # assume one root!
             del( skel.joint_topo[ "GLOBAL" ] )
             skel.joint_root = root
-            skel.joint_names = skel._remarshalTopo()
+            skel.joint_names = skel._traverse( root )
             skel.joint_count = len( skel.joint_names )
             
             # make LUT
@@ -142,7 +142,7 @@ def readHTR( file_name ):
         if( "BasePosition" in line ):
             skel.joint_L_mats = np.zeros( (skel.joint_count,3,4), dtype=np.float32 )
             skel.joint_chans = []
-            skel.joint_chanidx[ 0 ]
+            skel.joint_chanidx = [ 0 ]
             
             while( True ):
                 line = lines.pop().strip()
@@ -165,7 +165,7 @@ def readHTR( file_name ):
                 skel.joint_chans += chans
                 skel.joint_chanidx.append( len( skel.joint_chans ) )
                 for ch in chans:
-                    skel.chan_label.append( j_name + MY_NAMES[ ch ] )
+                    skel.chan_label.append( j_name + MY_NAMES[ ch - 1 ] )
                     
             # Last Hierarchy section
             break
@@ -196,3 +196,5 @@ if( __name__ == "__main__" ):
     s = readHTR( "171025_Guy_ROM_body_01.htr" )
     for i, (name, type) in enumerate( zip( s.joint_names, s.joint_styles ) ):
         print name, type, ":", s.joint_chans[ s.joint_chanidx[i] : s.joint_chanidx[i+1] ]
+    col = {}
+    print s._computeChildWeight( "Hips", col )
