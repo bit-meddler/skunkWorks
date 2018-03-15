@@ -4,7 +4,14 @@ import numpy as np
 
 
 class SkeletonData( object ):
-
+    """
+        SkeletonData - the topology and configuration of a skeleton
+        
+        TODO:
+            # Joint Limits
+            # Expression-based solving
+            
+    """
     # joint Draw styles - note, enum corresponds to DoF count
     JOINT_END   = 0 # end           | Lozenge
     JOINT_HINGE = 1 # r             | Trunion
@@ -29,7 +36,7 @@ class SkeletonData( object ):
         self.joint_topo    = {} # s:[s] Dict of parent:[ children... ]
         self.joint_root    = "" # s     name of root joint
         # The maths
-        self.joint_L_mats  = [] # [np]  list of 3x4 Local Matrix
+        self.joint_L_mats  = [] # [np]  list of 3x4 Local Matrix - 'offset from parent'
         self.joint_G_mats  = [] # [np]  list of 3x4 Global Matrix
         # Drawing
         self.joint_styles  = [] # [i]   list of joint styles, for drawing
@@ -47,7 +54,7 @@ class SkeletonData( object ):
             print( "channel data miss-match" )
         # set world Origin
         world = self._blank34()
-        for j_idx, c_in, c_out in enumerate( zip( self.joint_chanidx[:-1], self.joint_chanidx[1:] ): )
+        for j_idx, c_in, c_out in enumerate( zip( self.joint_chanidx[:-1], self.joint_chanidx[1:] ) ):
             transform_order = self.joint_chans[ c_in:c_out ]
             chan_data = chans[ c_in:c_out ]
             transform_order = map( lambda x: x-1, transform_order )
@@ -64,9 +71,10 @@ class SkeletonData( object ):
                     if( op == 4 ): # Y
                         M = M[:,:3] * np.array( [[cv,0.,sv], [0.,1.,-0.], [-sv,cv,1.]], dtype=np.float32 )
                     if( op == 5 ): # Z
-                        M = M[:,:3] * np.array( [[cv,-sv.,0.],[sv,cv,0.], [0.,0.,1.]],  dtype=np.float32 )
+                        M = M[:,:3] * np.array( [[cv,-sv,0.],[sv,cv,0.], [0.,0.,1.]],  dtype=np.float32 )
                         
-            p_idx = self.jpint_parents[ j_idx ]
+            p_idx = self.joint_parents[ j_idx ]
+            # Something wrong here :(
             if( p_idx >= 0 ):
                 self.joint_G_mats[ j_idx ][:,:3] = np.dot( self.joint_G_mats[ p_idx ][:,:3],  M[:,:3] )
             else:
@@ -94,10 +102,43 @@ class SkeletonData( object ):
     
     def _remarshalTopo( self ):
         """
+            In the event of a topological change, we need to retraverse the skeleton
+            then update the current (invalid) ordering of Joint and Channels into the 
+            new order.  The Topographic change will not alter the number of channels or
+            their sequence of aplication.
+            Then update the LUT as the name:id mapping has been invalidated
+        """
+        # sort children by weigth, decresing
+        child_weights = {}
+        child_weights[ self.joint_root ] = self._computeChildWeight( self.joint_root, child_weights )
+        for children in self.joint_topo.values():
+            children.sort( key=lambda x: child_weights[ x ], reverse=True )
+        # DFS for traverse order
+        traverse_order = self._traverse( self.joint_root )
+        # reorder joint data
+        new_joint_chans = []
+        new_joint_chan_names = []
+        new_joint_chan_idxs = []
+        new_L_mats = []
+        for j_name in traverse_order:
+            j_id = self.joint_LUT[ j_name ]
+            c_in, c_out = self.joint_chanidx[ j_id ], self.joint_chanidx[ j_id + 1 ]
+            new_joint_chans.append( self.joint_chans[ c_in:c_out ] )
+            new_joint_chan_names.append( self.chan_label[ c_in:c_out ] )
+            new_joint_chan_idxs.append( len( new_joint_chans ) )
+            new_L_mats.append( self.joint_L_mats[ j_id, :,: ] )
+        new_joint_count = len( traverse_order )
+        # Update LUT
+        # Update parents
+        
+            
+    def _traverse( self, root ):
+        """
             DFS of the skeleton's topology to return a 'computation order' list
+            root can be a feaf if we are coimputing only a subset of the skel
         """
         path = []
-        q = [ self.joint_root ]
+        q = [ root ]
         while( len( q ) > 0 ):
             leaf = q.pop( 0 )
             if leaf not in path:
@@ -105,6 +146,52 @@ class SkeletonData( object ):
                 q = self.joint_topo[ leaf ] + q
         return path
         
+        
+    def _computeChildWeight( self, node, collector ):
+        acc = 0
+        print node
+        if( node in self.joint_topo ):
+            children = self.joint_topo[ node ]
+            if( len( children ) == 0 ):
+                return 1
+            for child in children:
+                val = self._computeChildWeight( child, collector )
+                if( child in collector ):
+                    collector[ child ] += val
+                else:
+                    collector[ child ] = val
+                acc += val
+        else:
+            return 0
+        return acc
+        
+        
+    def _updateJointConfig( self, joint_data, j_name=None, j_id=None ):
+        """
+            joint_data = dict of new joint setup
+            joint_data[ "DoF" ] = [ 1, 2, 3, 6, 5, 4 ]
+            joint_data[ "mat" ] = np.array( (3,4) )
+            
+            j_name / j_id = addressed by name or id (for convenience)
+        """
+        assert( j_name != j_id )
+        if( j_id == None ):
+            if( j_name in self.joint_LUT ):
+                j_id = self.joint_LUT[ j_name ]
+            else:
+                assert( False )
+        # topo hasn't changed, but what can?
+        # Dof Locks
+        # Rot Order
+        # L_mat
+        
+        
+    def _updateJointMat( self, joint ):
+        # update joint's L_mat
+        # dfs to find affected children (multi-rooted!)
+        # update children's L_mat
+        pass
+    
     
 class AnimData( object ):
     
