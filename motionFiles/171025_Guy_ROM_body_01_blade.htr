@@ -1,0 +1,24 @@
+# Comment line ignore any data following # character
+#
+# Motion Analysis file 'C:/code/skunkWorks/motionFiles/171025_Guy_ROM_body_01_blade.htr'
+#
+# Written By Blade, a product of Vicon Motion Systems, Inc.
+[Header]
+FileType htr
+DataType HTRS
+FileVersion 1
+NumSegments 0
+NumFrames 120
+DataFrameRate 120
+EulerRotationOrder ZYX
+CalibrationUnits mm
+RotationUnits Degrees
+GlobalAxisofGravity Y
+BoneLengthAxis Y
+ScaleFactor 1.000000
+[SegmentNames&Hierarchy]
+#CHILD	PARENT
+[BasePosition]
+#SegmentName Tx Ty Tz Rx Ry Rz BoneLength
+#Beginning of Data. Each column separated by tabs
+[EndOfFile]
