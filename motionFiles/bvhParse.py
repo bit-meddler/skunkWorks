@@ -28,6 +28,8 @@ def readBVH( file_name ):
     
     while( len( lines ) > 0 ):
         line = lines.pop().strip()
+        if( line.startswith( "#" ) ):
+            line = lines.pop().strip()
         if( "HIERARCHY" in line ):
             # start of skeleton definition
             parent_id          = -1 # Global
@@ -82,6 +84,9 @@ def readBVH( file_name ):
                 if( depth == 0 ): # End of Hierarchy 
                     break
                     
+                if( line.startswith( "#" ) ):
+                    line = lines.pop().strip()
+                    
         # Tidy up
         skel.joint_count = len( skel.joint_names )
     
@@ -108,6 +113,7 @@ def readBVH( file_name ):
     return skel
 
 if( __name__ == "__main__" ):
-    s = readBVH( "171025_Guy_ROM_body_01.bvh" )
+    s = readBVH( "171025_Guy_ROM_body_01_mobu.bvh" )
+    s = readBVH( "171025_Guy_ROM_body_01_blade.bvh" )
     for i, (name, type) in enumerate( zip( s.joint_names, s.joint_styles ) ):
         print name, type, ":", s.joint_chans[ s.joint_chanidx[i] : s.joint_chanidx[i+1] ]

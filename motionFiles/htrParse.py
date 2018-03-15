@@ -53,7 +53,6 @@ def readHTR( file_name ):
 
     skel = SkeletonData()
     
-    line = lines.pop().strip()
     header_rot_order = "XYZ"
     header_rot_chans = []
     header_rot_units = "Degrees"
@@ -62,7 +61,11 @@ def readHTR( file_name ):
     header_joints = -1
     
     while( True ):
+        line = lines.pop().strip()
         
+        if( line.startswith( "#" ) ):
+            line = lines.pop().strip()
+            
         if( line == "" ):
             continue
             
@@ -72,6 +75,8 @@ def readHTR( file_name ):
                 line = lines.pop().strip()
                 if( "[" in line ): # New block
                     break
+                if( line.startswith( "#" ) ):
+                    line = lines.pop().strip()
                 if( "NumSegments" in line ):
                      _, header_joints = line.split()
                      header_joints = int( header_joints )
@@ -107,6 +112,8 @@ def readHTR( file_name ):
             rev_LUT = {}
             while( True ):
                 line = lines.pop().strip()
+                if( line.startswith( "#" ) ):
+                    line = lines.pop().strip()
                 if( "[" in line ): # New block
                     break
                 child, parent = line.split()
@@ -146,6 +153,8 @@ def readHTR( file_name ):
             
             while( True ):
                 line = lines.pop().strip()
+                if( line.startswith( "#" ) ):
+                    line = lines.pop().strip()
                 if( "[" in line ): # New block
                     break
                 # get base pose
@@ -193,7 +202,8 @@ def readHTR( file_name ):
 
     
 if( __name__ == "__main__" ):
-    s = readHTR( "171025_Guy_ROM_body_01.htr" )
+    s = readHTR( "171025_Guy_ROM_body_01_mobu.htr" )
+    s = readHTR( "171025_Guy_ROM_body_01_blade.htr" )
     for i, (name, type) in enumerate( zip( s.joint_names, s.joint_styles ) ):
         print name, type, ":", s.joint_chans[ s.joint_chanidx[i] : s.joint_chanidx[i+1] ]
     col = {}

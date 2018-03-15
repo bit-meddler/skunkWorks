@@ -134,8 +134,8 @@ class SkeletonData( object ):
             
     def _traverse( self, root ):
         """
-            DFS of the skeleton's topology to return a 'computation order' list
-            root can be a feaf if we are coimputing only a subset of the skel
+            DFS of the skeleton's topology to return a 'computation order' list.
+            root can be a leaf if we are coimputing only a subset of the skel
         """
         path = []
         q = [ root ]
