@@ -9,6 +9,7 @@ class SkeletonData( object ):
         
         TODO:
             # Joint Limits
+            # CoM ratio
             # Expression-based solving
             
     """
@@ -45,20 +46,25 @@ class SkeletonData( object ):
         self.anim = AnimData()  # obj of channel data
         
 
-    def poseDirect( self, chans ):
+    def poseDirect( self, chans, frame=None ):
         """
             Based on supplied channels, pose the Skeleton's G_mats
             Direct mapping of channel data -> joint channels
+            frame is an optional "Global Frame"
         """
         if( len( chans ) != len( self.joint_chans ) ):
             print( "channel data miss-match" )
         # set world Origin
-        world = self._blank34()
+        world = frame if( frame != None ) else self._eye34()
+        # resulting pose
+        pose = np.zeros( shape=self.joint_G_mats.shape, dtype=np.float32 )
+        # walk the skel in evaluation order & pose
         for j_idx, c_in, c_out in enumerate( zip( self.joint_chanidx[:-1], self.joint_chanidx[1:] ) ):
+            # compose a transformation matrix conforming to the joint's DoFs and rot-order
             transform_order = self.joint_chans[ c_in:c_out ]
             chan_data = chans[ c_in:c_out ]
             transform_order = map( lambda x: x-1, transform_order )
-            M = self._blank34()
+            M = self._eye34()
             for i, op in enumerate( transform_order ):
                 if( op < 3 ):
                     #tx
@@ -76,13 +82,14 @@ class SkeletonData( object ):
             p_idx = self.joint_parents[ j_idx ]
             # Something wrong here :(
             if( p_idx >= 0 ):
-                self.joint_G_mats[ j_idx ][:,:3] = np.dot( self.joint_G_mats[ p_idx ][:,:3],  M[:,:3] )
+                pose[ j_idx ][:,:3] = np.dot( pose[ p_idx ][:,:3],  M[:,:3] )
             else:
-                self.joint_G_mats[ j_idx ][:,:3] = np.dot( world[:,:3],  M[:,:3] )
-            self.joint_G_mats[ j_idx ][:,3] = np.dot( M[:,:3], M[:,3] )
+                pose[ j_idx ][:,:3] = np.dot( world[:,:3],  M[:,:3] )
+            pose[ j_idx ][:,3] = np.dot( M[:,:3], M[:,3] )
+        # return
+        return pose
                 
-                
-    def poseExp( self, chans ):
+    def poseExp( self, chans, frame=None ):
         """ TODO:
             Expression based posing.
             Compute all channels based on channel data and an expression matrix.  This enables a 
@@ -95,9 +102,9 @@ class SkeletonData( object ):
         
         
     @staticmethod
-    def _blank34():
+    def _eye34():
         # This needs to be in a skeleton math lib
-        return np.array( [[1.,0.,0.,0],[0.,1.,0.,0],[0.,0.,1.,0]], dtype=np.float32 )
+        return np.array( [[1.,0.,0.,0.],[0.,1.,0.,0.],[0.,0.,1.,0.]], dtype=np.float32 )
     
     
     def _remarshalTopo( self ):
@@ -149,7 +156,7 @@ class SkeletonData( object ):
         
     def _computeChildWeight( self, node, collector ):
         acc = 0
-        print node
+        
         if( node in self.joint_topo ):
             children = self.joint_topo[ node ]
             if( len( children ) == 0 ):
@@ -209,3 +216,15 @@ class AnimData( object ):
             For now this will be a dumb linnear interpolation.
         """
         pass
+        
+"""
+    Idea for drawing a skeleton (in the above format)
+    1) Pose
+    2) walk the 'evaluation order'
+        a) Draw "Drawstyle" Joint at G.RT
+        b) For each Child draw a Bone from G.RT to child.G.T (not Transpose!!)
+        
+    Now, how do we draw a bone?
+        a) Start easy.  A Cylinder
+        b) Blade like Trapazoid ???
+"""

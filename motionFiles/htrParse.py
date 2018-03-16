@@ -188,7 +188,6 @@ def readHTR( file_name ):
             break
         # get joint's animation    
         j_id = skel.joint_LUT[ name ]
-        print name
         line = lines.pop().strip()
         # populate basepose joint offset from t datas
         while( not "]" in line ):
@@ -203,8 +202,11 @@ def readHTR( file_name ):
     
 if( __name__ == "__main__" ):
     s = readHTR( "171025_Guy_ROM_body_01_mobu.htr" )
-    s = readHTR( "171025_Guy_ROM_body_01_blade.htr" )
+    #s = readHTR( "171025_Guy_ROM_body_01_blade.htr" )
     for i, (name, type) in enumerate( zip( s.joint_names, s.joint_styles ) ):
-        print name, type, ":", s.joint_chans[ s.joint_chanidx[i] : s.joint_chanidx[i+1] ]
+        print "*", name, type, ":", s.joint_chans[ s.joint_chanidx[i] : s.joint_chanidx[i+1] ]
     col = {}
-    print s._computeChildWeight( "Hips", col )
+    col[ "Hips" ] = s._computeChildWeight( "Hips", col )
+    print col
+        
+    
