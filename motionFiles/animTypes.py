@@ -59,15 +59,18 @@ class SkeletonData( object ):
         # resulting pose
         pose = np.zeros( shape=self.joint_G_mats.shape, dtype=np.float32 )
         # walk the skel in evaluation order & pose
+        # TODO:
+        #       First element is always root so do root computation, then ci[1:-1], ci[2:]
         for j_idx, c_in, c_out in enumerate( zip( self.joint_chanidx[:-1], self.joint_chanidx[1:] ) ):
             # compose a transformation matrix conforming to the joint's DoFs and rot-order
             transform_order = self.joint_chans[ c_in:c_out ]
             chan_data = chans[ c_in:c_out ]
             transform_order = map( lambda x: x-1, transform_order )
             M = self._eye34()
+            # must be a nicer way of doing this!
             for i, op in enumerate( transform_order ):
                 if( op < 3 ):
-                    #tx
+                    # tx
                     M[op,3] = chan_data[ i ]
                 else:
                     # another customer for skeleton maths
@@ -80,12 +83,18 @@ class SkeletonData( object ):
                         M = M[:,:3] * np.array( [[cv,-sv,0.],[sv,cv,0.], [0.,0.,1.]],  dtype=np.float32 )
                         
             p_idx = self.joint_parents[ j_idx ]
-            # Something wrong here :(
+            # Might be better...
+            # dot( A, B ) -> parent . child; child's space is tx'd by parent
+            # Maybe replace dot with matmul?
             if( p_idx >= 0 ):
                 pose[ j_idx ][:,:3] = np.dot( pose[ p_idx ][:,:3],  M[:,:3] )
+                pose[ j_idx ][:,3]  = np.dot( pose[ p_idx ][:,:3],  M[:,3]  )
+                pose[ j_idx ][:,3] += pose[ p_idx ][:,3]
+                
             else:
-                pose[ j_idx ][:,:3] = np.dot( world[:,:3],  M[:,:3] )
-            pose[ j_idx ][:,3] = np.dot( M[:,:3], M[:,3] )
+                pose[ j_idx ][:,:3] = np.dot( world[:,:3], M[:,:3] )
+                pose[ j_idx ][:,3]  = np.dot( world[:,:3], M[:,3]  )
+                pose[ j_idx ][:,3] += world[:,3]
         # return
         return pose
                 

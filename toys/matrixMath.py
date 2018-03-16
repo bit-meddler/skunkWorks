@@ -1,9 +1,17 @@
 """ 
-    Matrix Math, but in english
+    Matrix Maths, but in English
     for teaching
 """
-
-def matMulEng( A, B ):
+def dot1dEng( A, B, optimize=True ):
+    C = ""
+    for i,j in zip( A, B ):
+        if( ((i=="0") or (j=="0")) and optimize:
+            continue
+        C += "+(" + i "*" + j + ")"
+    return C
+    
+    
+def matMulEng( A, B, optimize=True ):
     A_r = len( A )
     A_c = len( A[0] )
     B_r = len( B )
@@ -16,41 +24,67 @@ def matMulEng( A, B ):
             for k in range( A_c ):
                 Av = A[i][k]
                 Bv = B[k][j]
-                if( (Av=="0") or (Bv=="0") ):
+                if( ((Av=="0") or (Bv=="0")) and optimize ):
                     continue
                 elif( (Av=="1") and (Bv=="1") ):
                     C[i][j] += "+1"
-                else
+                else:
                     C[i][j] += "+(" + Av + "*" + Bv + ")"
-                
     return C
-    
-X = [[    "1",    "0",    "0" ],
-     [    "0",  "cvx", "-svx" ],
-     [    "0",  "svx",  "cvx" ]]
-     
-Y = [[  "cvy",    "0",  "svy" ],
-     [    "0",    "1",    "0" ],
-     [ "-svy",    "0",  "cvy" ]]
-     
-Z = [[  "cvz", "-svz",    "0" ],
-     [  "svz",  "cvz",    "0" ],
-     [    "0",    "0",    "1" ]]
 
-
-for order in [ "XYZ", "XZY", "YXZ", "YZX", "ZXY", "ZYX" ]:
     
-    M = [[    "1",    "0",    "0" ],
+def genAllRots():    
+    X = [[    "1",    "0",    "0" ],
+         [    "0",  "cvx", "-svx" ],
+         [    "0",  "svx",  "cvx" ]]
+         
+    Y = [[  "cvy",    "0",  "svy" ],
          [    "0",    "1",    "0" ],
+         [ "-svy",    "0",  "cvy" ]]
+         
+    Z = [[  "cvz", "-svz",    "0" ],
+         [  "svz",  "cvz",    "0" ],
          [    "0",    "0",    "1" ]]
-    
-    for ax in order[::-1]:
-        if ax=="X":
-            M = matMulEng( M, X )
-        if ax=="Y":
-            M = matMulEng( M, Y )
-        if ax=="Z":
-            M = matMulEng( M, Z )
-                                    
-    print( order )
-    print( M )
+
+    ret = {}
+
+    for order in [ "XYZ", "XZY", "YXZ", "YZX", "ZXY", "ZYX",
+                   "XY",  "XZ",  "YX",  "YZ",  "ZX",  "ZY",
+                   "X",          "Y",          "Z"          ]:
+        
+        M = [[    "1",    "0",    "0" ],
+             [    "0",    "1",    "0" ],
+             [    "0",    "0",    "1" ]]
+        
+        for ax in order[::-1]:
+            if ax=="X":
+                M = matMulEng( M, X )
+            if ax=="Y":
+                M = matMulEng( M, Y )
+            if ax=="Z":
+                M = matMulEng( M, Z )
+                                        
+        ret[ order ] = M
+
+    return ret
+
+
+A = [ [ "arxx", "aryx", "arzx", "atx" ],
+      [ "arxy", "aryy", "arzy", "aty" ],
+      [ "arxz", "aryz", "arzz", "atx" ],
+      [    "0",    "0",    "0",   "1" ] ]
+
+B = [ [ "brxx", "bryx", "brzx", "btx" ],
+      [ "brxy", "bryy", "brzy", "bty" ],
+      [ "brxz", "bryz", "brzz", "btx" ],
+      [    "0",    "0",    "0",   "1" ] ]
+
+
+C = matMulEng( A, B, False )
+
+"""
+[ ['+(arxx*brxx)+(aryx*brxy)+(arzx*brxz)+(atx*0)', '+(arxx*bryx)+(aryx*bryy)+(arzx*bryz)+(atx*0)', '+(arxx*brzx)+(aryx*brzy)+(arzx*brzz)+(atx*0)', '+(arxx*btx)+(aryx*bty)+(arzx*btx)+(atx*1)'],
+  ['+(arxy*brxx)+(aryy*brxy)+(arzy*brxz)+(aty*0)', '+(arxy*bryx)+(aryy*bryy)+(arzy*bryz)+(aty*0)', '+(arxy*brzx)+(aryy*brzy)+(arzy*brzz)+(aty*0)', '+(arxy*btx)+(aryy*bty)+(arzy*btx)+(aty*1)'],
+  ['+(arxz*brxx)+(aryz*brxy)+(arzz*brxz)+(atx*0)', '+(arxz*bryx)+(aryz*bryy)+(arzz*bryz)+(atx*0)', '+(arxz*brzx)+(aryz*brzy)+(arzz*brzz)+(atx*0)', '+(arxz*btx)+(aryz*bty)+(arzz*btx)+(atx*1)'],
+  ['+(0*brxx)+(0*brxy)+(0*brxz)+(1*0)',            '+(0*bryx)+(0*bryy)+(0*bryz)+(1*0)',            '+(0*brzx)+(0*brzy)+(0*brzz)+(1*0)',            '+(0*btx)+(0*bty)+(0*btx)+1'] ]
+"""
