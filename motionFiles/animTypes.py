@@ -60,7 +60,7 @@ class SkeletonData( object ):
         pose = np.zeros( shape=self.joint_G_mats.shape, dtype=np.float32 )
         # walk the skel in evaluation order & pose
         # TODO:
-        #       First element is always root so do root computation, then ci[1:-1], ci[2:]
+        #       First element is always root so do root computation standalone, then ci[1:-1], ci[2:]
         for j_idx, c_in, c_out in enumerate( zip( self.joint_chanidx[:-1], self.joint_chanidx[1:] ) ):
             # compose a transformation matrix conforming to the joint's DoFs and rot-order
             transform_order = self.joint_chans[ c_in:c_out ]
@@ -85,7 +85,7 @@ class SkeletonData( object ):
             p_idx = self.joint_parents[ j_idx ]
             # Might be better...
             # dot( A, B ) -> parent . child; child's space is tx'd by parent
-            # Maybe replace dot with matmul?
+            # Maybe replace dot with np.matmul for the R component?
             if( p_idx >= 0 ):
                 pose[ j_idx ][:,:3] = np.dot( pose[ p_idx ][:,:3],  M[:,:3] )
                 pose[ j_idx ][:,3]  = np.dot( pose[ p_idx ][:,:3],  M[:,3]  )
