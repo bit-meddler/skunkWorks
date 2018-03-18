@@ -164,22 +164,45 @@ class SkeletonData( object ):
         
         
     def _computeChildWeight( self, node, collector ):
-        acc = 0
+        return self._computeChildSubBranches( node, collector )
         
-        if( node in self.joint_topo ):
-            children = self.joint_topo[ node ]
-            if( len( children ) == 0 ):
-                return -1
-            for child in children:
-                val = self._computeChildWeight( child, collector ) + 1
-                if( child in collector ):
-                    collector[ child ] += val
-                else:
-                    collector[ child ] = val
-                acc += val
-        else:
-            assert(False)
-        return acc
+        
+    def _computeChildSubBranches( self, node, collector ):
+    acc = 0
+    
+    if( node in self.joint_topo ):
+        children = self.joint_topo[ node ]
+        if( len( children ) == 0 ):
+            return 1
+        for child in children:
+            val = self._computeChildWeight( child, collector )
+            if( child in collector ):
+                collector[ child ] += val
+            else:
+                collector[ child ] = val
+            acc += val
+    else:
+        assert(False)
+    return acc
+    
+    
+    def _computeChildSubJoints( self, node, collector ):
+    acc = 0
+    
+    if( node in self.joint_topo ):
+        children = self.joint_topo[ node ]
+        if( len( children ) == 0 ):
+            return -1
+        for child in children:
+            val = self._computeChildWeight( child, collector ) + 1
+            if( child in collector ):
+                collector[ child ] += val
+            else:
+                collector[ child ] = val
+            acc += val
+    else:
+        assert(False)
+    return acc
         
         
     def _updateJointConfig( self, joint_data, j_name=None, j_id=None ):
