@@ -207,6 +207,9 @@ if( __name__ == "__main__" ):
         print "*", name, type, ":", s.joint_chans[ s.joint_chanidx[i] : s.joint_chanidx[i+1] ]
     col = {}
     col[ "Hips" ] = s._computeChildWeight( "Hips", col )
-    print col
+    for n in s.joint_names:
+        if not n in col:
+            col[ n ] = 0
+        print n, col[ n ]
         
     

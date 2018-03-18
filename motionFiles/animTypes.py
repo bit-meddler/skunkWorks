@@ -169,16 +169,16 @@ class SkeletonData( object ):
         if( node in self.joint_topo ):
             children = self.joint_topo[ node ]
             if( len( children ) == 0 ):
-                return 1
+                return -1
             for child in children:
-                val = self._computeChildWeight( child, collector )
+                val = self._computeChildWeight( child, collector ) + 1
                 if( child in collector ):
                     collector[ child ] += val
                 else:
                     collector[ child ] = val
                 acc += val
         else:
-            return 0
+            assert(False)
         return acc
         
         
