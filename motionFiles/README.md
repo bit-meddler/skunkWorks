@@ -21,3 +21,7 @@ Acclaim / Giant / LEI interchange format.  Not the _Internal_ format of MDL/DOF/
 
 ## Skeleton Maths
 I may end up with a maths library for dealing with common skeleton problems
+
+## FBX
+c.f. with https://code.blender.org/2013/08/fbx-binary-file-format-specification/ and https://wiki.blender.org/index.php/User:Mont29/Foundation/FBX_File_Structure  Looks pretty Bonkers!
+
