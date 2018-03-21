@@ -39,4 +39,4 @@ def genPipe( sides, radius, t_orig, b_orig=None ):
     VBO = np.concatenate( (T, B), axis=0 )
     return [VBO, T_idx, B_idx, S_idx]
 
-print genPipe( 20, 5, (0,0,0) )
+print genPipe( 20, 5, (0,10,0), (0,-10,0) )
