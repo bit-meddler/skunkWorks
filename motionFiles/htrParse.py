@@ -35,11 +35,11 @@ def _formRot( rx, ry, rz, order="XYZ" ):
     # Post multiplying
     for ax in order[::-1]:
         if ax=="X":
-            M *= X
+            M = np.matmul( X, M )
         if ax=="Y":
-            M *= Y
+            M = np.matmul( Y, M )
         if ax=="Z":
-            M *= Z
+            M = np.matmul( Z, M )
             
     return M
     
