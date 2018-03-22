@@ -35,12 +35,18 @@ def _multi( A, B ):
     # Make a multiplication string
     out = "( "
     if( "*" in A ):
-        out += "(" + A + ")"
+        if( A.startswith("(") and A.endswith(")") ):
+            out += A
+        else:
+            out += "(" + A + ")"
     else:
         out += A
     out += "*"
     if( "*" in B ):
-        out += "(" + B + ")"
+        if( B.startswith("(") and B.endswith(")") ):
+            out += B
+        else:
+            out += "(" + B + ")"
     else:
         out += B
     out += " )"
@@ -94,29 +100,25 @@ def _clean( M ):
     for i in range( M_r ):
         for j in range( M_c ):
             cell = M[ i ][ j ]
-            if( "(( " in cell ):
-                # clean
-                cell = cell.replace( "(( ", "(" )
-                cell = cell.replace( " ))", ")" )
             if( "0+1" in cell ):
                 cell = cell.replace( "0+1", "1" )
             cell = cell.replace( " ", "" )
-            new[ i ][ j ] = cell    
+            new[ i ][ j ] = cell
     return new
 
 
 def genAllRots():    
-    X = [[    "1",    "0",    "0" ],
-         [    "0",  "cvx", "-svx" ],
-         [    "0",  "svx",  "cvx" ]]
+    X = [[    "1",   "0",   "0" ],
+         [    "0",  "cx", "-sx" ],
+         [    "0",  "sx",  "cx" ]]
          
-    Y = [[  "cvy",    "0",  "svy" ],
-         [    "0",    "1",    "0" ],
-         [ "-svy",    "0",  "cvy" ]]
+    Y = [[  "cy",    "0",  "sy" ],
+         [   "0",    "1",  "0"  ],
+         [ "-sy",    "0",  "cy" ]]
          
-    Z = [[  "cvz", "-svz",    "0" ],
-         [  "svz",  "cvz",    "0" ],
-         [    "0",    "0",    "1" ]]
+    Z = [[  "cz", "-sz",    "0" ],
+         [  "sz",  "cz",    "0" ],
+         [  "0",    "0",    "1" ]]
 
     ret = {}
     
@@ -161,8 +163,9 @@ for order in ROTATIONS:
     return M
 
 """.format( matrix[0], matrix[1], matrix[2] )
-
-    print  out
+    # remove the "'"s
+    
+    print  out.replace( "'", "" )
 """
 [ ['+(arxx*brxx)+(aryx*brxy)+(arzx*brxz)+(atx*0)', '+(arxx*bryx)+(aryx*bryy)+(arzx*bryz)+(atx*0)', '+(arxx*brzx)+(aryx*brzy)+(arzx*brzz)+(atx*0)', '+(arxx*btx)+(aryx*bty)+(arzx*btx)+(atx*1)'],
   ['+(arxy*brxx)+(aryy*brxy)+(arzy*brxz)+(aty*0)', '+(arxy*bryx)+(aryy*bryy)+(arzy*bryz)+(aty*0)', '+(arxy*brzx)+(aryy*brzy)+(arzy*brzz)+(aty*0)', '+(arxy*btx)+(aryy*bty)+(arzy*btx)+(aty*1)'],
