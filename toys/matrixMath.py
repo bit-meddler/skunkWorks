@@ -2,12 +2,17 @@
     Matrix Maths, but in English
     for teaching
 """
+
+ROTATIONS = ( "XYZ", "XZY", "YXZ", "YZX", "ZXY", "ZYX",
+               "XY",  "XZ",  "YX",  "YZ",  "ZX",  "ZY",
+               "X",          "Y",          "Z"          )
+
 def dot1dEng( A, B, optimize=True ):
     C = ""
     for i,j in zip( A, B ):
-        if( ((i=="0") or (j=="0")) and optimize:
+        if( ((i=="0") or (j=="0")) and optimize ):
             continue
-        C += "+(" + i "*" + j + ")"
+        C += '+({}*{})'.format( i, j )
     return C
     
     
@@ -47,10 +52,8 @@ def genAllRots():
          [    "0",    "0",    "1" ]]
 
     ret = {}
-
-    for order in [ "XYZ", "XZY", "YXZ", "YZX", "ZXY", "ZYX",
-                   "XY",  "XZ",  "YX",  "YZ",  "ZX",  "ZY",
-                   "X",          "Y",          "Z"          ]:
+    
+    for order in ROTATIONS:
         
         M = [[    "1",    "0",    "0" ],
              [    "0",    "1",    "0" ],
@@ -82,6 +85,22 @@ B = [ [ "brxx", "bryx", "brzx", "btx" ],
 
 C = matMulEng( A, B, False )
 
+d = genAllRots()
+for order in ROTATIONS:
+    matrix = d[ order ]
+    out = """def _rotMat{0}( rx, ry, rz ):
+    # compose and simplify rotation matrix in order of {0}
+    cx, sx = np.cos( rx ), np.sin( rx )
+    cy, sy = np.cos( ry ), np.sin( ry )
+    cz, sz = np.cos( rz ), np.sin( rz )
+
+
+    M = {1}
+    return M
+
+""".format( order, matrix )
+
+    print  out
 """
 [ ['+(arxx*brxx)+(aryx*brxy)+(arzx*brxz)+(atx*0)', '+(arxx*bryx)+(aryx*bryy)+(arzx*bryz)+(atx*0)', '+(arxx*brzx)+(aryx*brzy)+(arzx*brzz)+(atx*0)', '+(arxx*btx)+(aryx*bty)+(arzx*btx)+(atx*1)'],
   ['+(arxy*brxx)+(aryy*brxy)+(arzy*brxz)+(aty*0)', '+(arxy*bryx)+(aryy*bryy)+(arzy*bryz)+(aty*0)', '+(arxy*brzx)+(aryy*brzy)+(arzy*brzz)+(aty*0)', '+(arxy*btx)+(aryy*bty)+(arzy*btx)+(aty*1)'],
