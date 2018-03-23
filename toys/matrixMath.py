@@ -141,34 +141,44 @@ def genAllRots():
     return ret
 
 
-d = genAllRots()
-
-for order in ROTATIONS:
-    matrix = d[ order ]
-    out = """def _rotMat{0}( rx, ry, rz ):
-    # compose and simplify rotation matrix in order of {0}\n""".format( order )
-    
-    if( "X" in order ):
-        out += "    cx, sx = np.cos( rx ), np.sin( rx )\n"
-    if( "Y" in order ):
-        out += "    cy, sy = np.cos( ry ), np.sin( ry )\n"
-    if( "Z" in order ):
-        out += "    cz, sz = np.cos( rz ), np.sin( rz )\n"
+def genCode( d ):
+    for order in ROTATIONS:
+        matrix = d[ order ]
+        out = """def _rotMat{0}( rx, ry, rz ):
+        # compose and simplify rotation matrix in order of {0}\n""".format( order )
         
-    out += """
+        if( "X" in order ):
+            out += "    cx, sx = np.cos( rx ), np.sin( rx )\n"
+        if( "Y" in order ):
+            out += "    cy, sy = np.cos( ry ), np.sin( ry )\n"
+        if( "Z" in order ):
+            out += "    cz, sz = np.cos( rz ), np.sin( rz )\n"
+            
+        out += """
 
-    M = [ {0},
-          {1},
-          {2} ]
-    return M
+        M = [ {0},
+              {1},
+              {2} ]
+        return M
 
-""".format( matrix[0], matrix[1], matrix[2] )
-    # remove the "'"s
-    
-    print  out.replace( "'", "" )
-"""
-[ ['+(arxx*brxx)+(aryx*brxy)+(arzx*brxz)+(atx*0)', '+(arxx*bryx)+(aryx*bryy)+(arzx*bryz)+(atx*0)', '+(arxx*brzx)+(aryx*brzy)+(arzx*brzz)+(atx*0)', '+(arxx*btx)+(aryx*bty)+(arzx*btx)+(atx*1)'],
-  ['+(arxy*brxx)+(aryy*brxy)+(arzy*brxz)+(aty*0)', '+(arxy*bryx)+(aryy*bryy)+(arzy*bryz)+(aty*0)', '+(arxy*brzx)+(aryy*brzy)+(arzy*brzz)+(aty*0)', '+(arxy*btx)+(aryy*bty)+(arzy*btx)+(aty*1)'],
-  ['+(arxz*brxx)+(aryz*brxy)+(arzz*brxz)+(atx*0)', '+(arxz*bryx)+(aryz*bryy)+(arzz*bryz)+(atx*0)', '+(arxz*brzx)+(aryz*brzy)+(arzz*brzz)+(atx*0)', '+(arxz*btx)+(aryz*bty)+(arzz*btx)+(atx*1)'],
-  ['+(0*brxx)+(0*brxy)+(0*brxz)+(1*0)',            '+(0*bryx)+(0*bryy)+(0*bryz)+(1*0)',            '+(0*brzx)+(0*brzy)+(0*brzz)+(1*0)',            '+(0*btx)+(0*bty)+(0*btx)+1'] ]
-"""
+    """.format( matrix[0], matrix[1], matrix[2] )
+        # remove the "'"s
+        
+        print  out.replace( "'", "" )
+    """
+    [ ['+(arxx*brxx)+(aryx*brxy)+(arzx*brxz)+(atx*0)', '+(arxx*bryx)+(aryx*bryy)+(arzx*bryz)+(atx*0)', '+(arxx*brzx)+(aryx*brzy)+(arzx*brzz)+(atx*0)', '+(arxx*btx)+(aryx*bty)+(arzx*btx)+(atx*1)'],
+      ['+(arxy*brxx)+(aryy*brxy)+(arzy*brxz)+(aty*0)', '+(arxy*bryx)+(aryy*bryy)+(arzy*bryz)+(aty*0)', '+(arxy*brzx)+(aryy*brzy)+(arzy*brzz)+(aty*0)', '+(arxy*btx)+(aryy*bty)+(arzy*btx)+(aty*1)'],
+      ['+(arxz*brxx)+(aryz*brxy)+(arzz*brxz)+(atx*0)', '+(arxz*bryx)+(aryz*bryy)+(arzz*bryz)+(atx*0)', '+(arxz*brzx)+(aryz*brzy)+(arzz*brzz)+(atx*0)', '+(arxz*btx)+(aryz*bty)+(arzz*btx)+(atx*1)'],
+      ['+(0*brxx)+(0*brxy)+(0*brxz)+(1*0)',            '+(0*bryx)+(0*bryy)+(0*bryz)+(1*0)',            '+(0*brzx)+(0*brzy)+(0*brzz)+(1*0)',            '+(0*btx)+(0*bty)+(0*btx)+1'] ]
+    """
+
+def genLUT():
+    out = "axisDict = {\n"
+    for order in ROTATIONS:
+        out += '    "{0}" : _rotMat{0},\n'.format( order )
+    out += "}"
+    print out
+
+rotMats = genAllRots()
+
+genLUT()
