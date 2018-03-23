@@ -45,17 +45,29 @@ class SkeletonData( object ):
         # Animation
         self.anim = AnimData()  # obj of channel data
         
-
-    def poseDirect( self, chans, frame=None ):
+        
+    @staticmethod
+    def _splitchans( chans ):
+        # maybe split chans to T and R parts, then compute indipendantly
+        T, R = [], []
+        for ch in chans:
+            if( ch > 3 ):
+                R.append( ch )
+            elif( ch > 0 ):
+                T.append( ch )
+        return T, R
+        
+        
+    def poseDirect( self, chans, origin=None ):
         """
             Based on supplied channels, pose the Skeleton's G_mats
             Direct mapping of channel data -> joint channels
-            frame is an optional "Global Frame"
+            origin is an optional "Global Frame", but we shouldn't call it either global, or frame!
         """
         if( len( chans ) != len( self.joint_chans ) ):
             print( "channel data miss-match" )
         # set world Origin
-        world = frame if( frame != None ) else self._eye34()
+        world = origin if( origin != None ) else self._eye34()
         # resulting pose
         pose = np.zeros( shape=self.joint_G_mats.shape, dtype=np.float32 )
         # walk the skel in evaluation order & pose
