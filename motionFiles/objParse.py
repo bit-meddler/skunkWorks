@@ -18,17 +18,6 @@ class ObjReader( object ):
     META_OBJ_KEY = "o"
     META_GRP_KEY = "g"
 
-    PARSERS = {
-        VERTEX_KEY   : self._parseVtx,
-        TEXTURE_KEY  : self._parseTex,
-        NORMAL_KEY   : self._parseNml,
-        META_OBJ_KEY : self._parseObj,
-        META_GRP_KEY : self._parseGrp,
-        MTL_KEY      : self._parseMtl,
-        MTL_EXT_KEY  : self._parseExt,
-        FACE_KEY     : self._parseFac,
-        COMMENT_KEY  : self._parseRem
-    }
 
     DEFAULT = "__default__"
     
@@ -57,55 +46,56 @@ class ObjReader( object ):
         self.scale = 1.
         self.tx_w_default = 1.
 
-        
-    @staticmethod    
+
+    @staticmethod
     def _parse_3f( args ):
         toks = args.split( " " )
         x, y, z = map( float, toks )
         return x, y, z
-            
-            
+
+
     @staticmethod
     def _parseF_i( args ):
         toks = args.split( " " )
         return map( int, toks )
-        
-        
+
+
     @staticmethod
     def _parseF_in( args ):
         toks = args.split( " " )
         L = map( lambda x: x.split( "/" ), toks )
         return map( lambda x: map( int, x ), L )
-        
-        
+
+
     @staticmethod
     def _parseF_i_n( args ):
         toks = args.split( " " )
         L = map( lambda x: x.split( "/" ), toks[1:] )
         return map( lambda x: [int(x[0]), int(x[2])], L )
 
-        
-    @staticmethod
-    def _fingerprintFace( args ):
+
+    def _fingerprintFace( self, args ):
         toks = args.split( " " )
-        X = toks[0]
+        X = toks[0] # example face element
         parser = None
-        mode = None
+        mode   = None
+        
         if( "//" in X ):
             mode = "IN"
-            parser = _parseF_i_n
+            parser = self._parseF_i_n
         elif( "/" in X ):
             if( X.count( "/" ) == 2 ):
                 mode = "ITN"
             else:
                 mode = "IN"
-            parser = _parseF_in
+            parser = self._parseF_in
         else:
             mode = "I"
-            parser = _parseF_i
+            parser = self._parseF_i
+            
         return parser, mode
 
-        
+
     def _renameContent( self, old, new ):
         ren_tasks = [] # [(old, new)...]
         for content in self.obj_data["OBJECT_LIST"]:
@@ -117,33 +107,33 @@ class ObjReader( object ):
             idx = self.obj_data["OBJECT_LIST"].index( source )
             self.obj_data["OBJECT_LIST"][ idx ] = target
             self.obj_data["CONTENT"][target] = self.obj_data["CONTENT"].pop( source )
-            
-            
+
+
     def _parseRem( self, args ):
         if( "centimeters" in args.lower() ):
             print( "cm Scaled file" )
             self.scale = 10.
         self.obj_data["CONTENT"][self.curr_tgt]["REMARKS"].append( args )
-        
-        
+
+
     def _parseVtx( self, args ):
         self.obj_data[ "VERTS" ].append( self._parse_3f( args ) )
-        
-        
+
+
     def _parseTex( self, args ):
         u, v, w = 0., 0., 0.
         toks = args.split( " " )
         if( len( toks ) > 3 ):
             u, v, w =  map( float, toks )
-        else
+        else:
             u, v = map( float, toks )
             w = self.tx_w_default
         self.obj_data[ "TEX_UV" ].append( (u, v, w) )
-        
-        
+
+
     def _parseNml( self, args ):
         self.obj_data[ "NORMALS" ].append( self._parse_3f( args ) )
-        
+
 
     def _parseObj( self, args ):
         # set new name
@@ -163,8 +153,8 @@ class ObjReader( object ):
                 "GEO"      : [],
                 "GEO_MODE" : ""
             }
-        
-        
+
+
     def _parseGrp( self, args ):
         # Update Curr_grp
         grp_name = args.replace( " ", "_" )
@@ -177,30 +167,41 @@ class ObjReader( object ):
             "GEO_MODE" : ""
         }
 
-        
-        
+
     def _parseMtl( self, args ):
         if( args not in self.obj_data["MATERIAL_LIST"] ):
             self.obj_data["MATERIAL_LIST"].append( args )
         self.obj_data["CONTENT"][self.curr_tgt]["MATERIAL"] = args
-        
-        
+
+
     def _parseExt( self, args ):
         # link to MTL file
         self.obj_data["MATERIAL_FILES"].append( args )
-        
-        
+
+
     def _parseFac( self, args ):
         self.obj_data["CONTENT"][self.curr_tgt]["GEO"].append(
             self.currFaceParser( args ) )
-        
-        
+
+            
+    PARSERS = {
+        VERTEX_KEY   : _parseVtx,
+        TEXTURE_KEY  : _parseTex,
+        NORMAL_KEY   : _parseNml,
+        META_OBJ_KEY : _parseObj,
+        META_GRP_KEY : _parseGrp,
+        MTL_KEY      : _parseMtl,
+        MTL_EXT_KEY  : _parseExt,
+        FACE_KEY     : _parseFac,
+        COMMENT_KEY  : _parseRem
+    }
+
+    
     def parseFile( self, file ):
         fh = open( file, "r" )
         
         last_key = ""
-        parser = None # function pointer to current parser
-        mode = None # Face mode
+        parse = None # function pointer to current parser
         
         for line in fh:
             line = line.strip()
@@ -211,9 +212,9 @@ class ObjReader( object ):
 
             # has key changed?
             if( key != last_key ):                    
-                if( key in self.PARSERS.keys ):
-                    parser = PARSERS[ key ]
-                    if( key == FACE_KEY ):
+                if( key in self.PARSERS.keys() ):
+                    parse = self.PARSERS[ key ]
+                    if( key == self.FACE_KEY ):
                         face_parser, face_mode = self._fingerprintFace( args )
                         self.currFaceParser = face_parser
                         self.obj_data["CONTENT"][self.curr_tgt]["GEO_MOED"] = face_mode
@@ -224,12 +225,16 @@ class ObjReader( object ):
                 last_key = key
                 # New parser activated!
             
-            parse( args )
+            parse( self, args )
         # loaded into dict
         # remarshal data...
         # TODO!
 
-
+if( __name__ == "__main__" ):
+    # test...
+    reader = ObjReader()
+    test = "cone1.obj"
+    reader.parseFile( test )
 
 
 
