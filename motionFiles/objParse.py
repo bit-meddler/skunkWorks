@@ -16,10 +16,9 @@ class ObjReader( object ):
     MTL_EXT_KEY  = "mtllib"
     META_OBJ_KEY = "o"
     META_GRP_KEY = "g"
-    FACE_M_KEY   = "_internal"
 
-    EXPECTED_ORDER - [ META_OBJ_KEY, VERTEX_KEY, TEXTURE_KEY, NORMAL_KEY, 
-                       META_GRP_KEY, MTL_KEY, MTL_EXT_KEY, FACE_KEY ]
+    EXPECTED_KEYS - [ META_OBJ_KEY, VERTEX_KEY, TEXTURE_KEY, NORMAL_KEY, 
+                      META_GRP_KEY, MTL_KEY, MTL_EXT_KEY, FACE_KEY ]
 
     ELEMENTS = {
         VERTEX_KEY   : "VERTEXS",
@@ -35,48 +34,42 @@ class ObjReader( object ):
     }
 
     PARSERS = {
-        VERTEX_KEY   : (_parse3F, ELEMENTS[VERTEX_KEY]),
-        TEXTURE_KEY  : (_parseTx, ELEMENTS[TEXTURE_KEY]),
-        NORMAL_KEY   : (_parse3F, ELEMENTS[NORMAL_KEY]),
+        VERTEX_KEY   : (self._parseVtx, self.ELEMENTS[VERTEX_KEY]),
+        TEXTURE_KEY  : (self._parseTex, self.ELEMENTS[TEXTURE_KEY]),
+        NORMAL_KEY   : (self._parseNml, self.ELEMENTS[NORMAL_KEY]),
     }
 
     
     def __init__( self ):
         self.DEFAULT = "__default__"
         self.obj_data = {
-            "VERTS" : [],
-            "TEX_UV" : [],
-            "NORMALS" : [],
+            "VERTS"         : [],
+            "TEX_UV"        : [],
+            "NORMALS"       : [],
+            "REMARKS"       : [],
             "MATERIAL_LIST" : [],
-            "MATERIALS" : {}
-            "OBJECTS" : [ self.DEFAULT ],
-            "CONTENT" : {
-                "DEFAULT" : {
-                    "REMARKS" : [],
-                    "MATERIAL" : "",
-                    "GEO" : []
-                }
-            },
+            "OBJECT_LIST"   : [ self.DEFAULT ],
+            "MATERIALS"     : {},
+            "CONTENT"       : {
+                    self.DEFAULT : {
+                        "REMARKS"  : [],
+                        "MATERIAL" : "",
+                        "GEO"      : []
+                    }
+            }
         }
         self.curr_obj = self.DEFAULT
         self.curr_grp = ""
+        self.curr_tgt = self.curr_obj
         self.scale = 1.
         self.tx_w_default = 1.
 
         
     @staticmethod    
-    def _parse3F( args ):
+    def _parse_3f( args ):
         toks = args.split( " " )
         x, y, z = map( float, toks )
         return x, y, z
-        
-    def _parseTx( self, args ):
-        toks = args.split( " " )
-        if( len( toks ) > 3 ):
-            return map( float, toks )
-        else
-            u, v = map( float, toks )
-            return u, v, self.tx_w_default
             
     @staticmethod
     def _parseF_i( args ):
@@ -114,24 +107,33 @@ class ObjReader( object ):
             mode = "I"
             parser = _parseF_i
         return parser, mode
+
         
-    @staticmethod
-    def _fingerprintLine( args ):
+    def _parseVtx( self, args ):
+        self.obj_data[ "VERTS" ].append( self._parse_3f( args ) )
+        
+        
+    def _parseTex( self, args ):
+        u, v, w = 0., 0., 0.
         toks = args.split( " " )
-        key = toks[0]
-        if( key == FACE_KEY ):
-            return _fingerprintFace( text )
-        else:
-            if( key in EXPECTED_ORDER ):
-                return PARSERS[ key ]
-            else:
-                print( "Unexpected key '{}'".format( key ) )
-                exit()
+        if( len( toks ) > 3 ):
+            u, v, w =  map( float, toks )
+        else
+            u, v = map( float, toks )
+            w = self.tx_w_default
+        self.obj_data[ "TEX_UV" ].append( (u, v, w) )
+        
+        
+    def _parseNml( self, args ):
+        self.obj_data[ "NORMALS" ].append( self._parse_3f( args ) )
+        
         
     def parseFile( self, file ):
         fh = open( file, "r" )
         
         last_key = ""
+        parser = None # function pointer to current parser
+        mode = None # Face mode
         
         for line in fh:
             line = line.strip()
@@ -139,10 +141,28 @@ class ObjReader( object ):
                 continue
                 
             key, args = line.split( " ", 1 )
-            
-
-
-
+            # comments
+            if( key == "#" ):
+                last_key = key
+                if( "centimeters" in args.lower() ):
+                    print( "cm Scaled file" )
+                    self.scale = 10.
+                self.obj_data["CONTENT"][self.curr_tgt]["REMARKS"].append( args )
+                continue
+                
+            # has key changed?
+            if( key != last_key ):
+                if( key == FACE_KEY ):
+                    face_parser, face_mode = self._fingerprintFace( args )
+                else:
+                    if( key in EXPECTED_ORDER ):
+                        parser, _parser = PARSERS[ key ]
+                    else:
+                        print( "Unexpected key '{}'".format( key ) )
+                        exit()
+                last_key = key
+                
+            parse( args )
 
 #
 
