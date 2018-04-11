@@ -17,6 +17,7 @@ class ObjReader( object ):
     MTL_EXT_KEY  = "mtllib"
     META_OBJ_KEY = "o"
     META_GRP_KEY = "g"
+    SMOOTH_G_KEY = "s"
 
 
     DEFAULT = "__default__"
@@ -35,6 +36,7 @@ class ObjReader( object ):
             "MATERIAL_FILES": [],
             "OBJECT_LIST"   : [ self.DEFAULT ],
             "MATERIALS"     : {},
+            "COMP_TOPO"     : {},
             "COMPONENTS"       : {
                     self.DEFAULT : {
                         "REMARKS"  : [],
@@ -128,7 +130,7 @@ class ObjReader( object ):
     def _parseTex( self, args ):
         u, v, w = 0., 0., 0.
         toks = args.split( " " )
-        if( len( toks ) > 3 ):
+        if( len( toks ) > 2 ):
             u, v, w =  map( float, toks )
         else:
             u, v = map( float, toks )
@@ -162,10 +164,36 @@ class ObjReader( object ):
 
 
     def _parseGrp( self, args ):
-        # Update Curr_grp
-        grp_name = args.replace( " ", "_" )
+        # sometimes it has hyraychy info
+        # g child parent
+        # Sometimes materials
+        # g arms_GRP Markk_blinnSG
+        # usemtl Markk_blinnSG
+        # TODO
+        grp_name = ""
+        parent = None
+        
+        toks = args.split( " " )
+        if( len( toks ) > 1 ):
+            grp_name = toks[0]
+            parent   = toks[1]
+            # adapted from the HTR parser
+            if parent in self.obj_data["COMP_TOPO"]:
+                self.obj_data["COMP_TOPO"][ parent ].append( grp_name )
+            else:
+                self.obj_data["COMP_TOPO"][ parent ] = [ grp_name ]
+            if grp_name not in self.obj_data["COMP_TOPO"]:
+                self.obj_data["COMP_TOPO"][ grp_name ] = []
+        else:
+            grp_name = toks[0]
+        # update tgt
         self.curr_grp = grp_name
         self.curr_tgt = ":".join( (self.curr_obj, grp_name) )
+        # guard against re[eated names
+        if( grp_name in self.obj_data["OBJECT_LIST"] ):
+            # TODO
+            return
+        # new component
         self.obj_data["COMPONENTS"][self.curr_tgt] = {
             "REMARKS"  : [],
             "MATERIAL" : "",
@@ -190,7 +218,13 @@ class ObjReader( object ):
         self.obj_data["COMPONENTS"][self.curr_tgt]["GEO"].append(
             self.currFaceParser( args ) )
 
-            
+
+    def _parseSmg(self, args ):
+        # smoothing group on/off
+        # TODO:
+        pass
+
+    
     PARSERS = {
         VERTEX_KEY   : _parseVtx,
         TEXTURE_KEY  : _parseTex,
@@ -200,7 +234,8 @@ class ObjReader( object ):
         MTL_KEY      : _parseMtl,
         MTL_EXT_KEY  : _parseExt,
         FACE_KEY     : _parseFac,
-        COMMENT_KEY  : _parseRem
+        COMMENT_KEY  : _parseRem,
+        SMOOTH_G_KEY : _parseSmg
     }
 
     
@@ -214,9 +249,19 @@ class ObjReader( object ):
             line = line.strip()
             if( line == "" ):
                 continue
-                
-            key, args = line.split( " ", 1 )
-
+            try:
+                key, args = line.split( " ", 1 )
+            except ValueError:
+                # deal with common faults
+                if( line.startswith( self.COMMENT_KEY ) ):
+                    # just a comment
+                    continue
+                if( line.startswith( self.META_GRP_KEY ) ):
+                    # blank group
+                    self._parseGrp( "root" )
+                print( "'{}' couldn't be split".format( line ) )
+                continue
+            
             # has key changed?
             if( key != last_key ):                    
                 if( key in self.PARSERS.keys() ):
@@ -256,6 +301,7 @@ if( __name__ == "__main__" ):
     reader.parseFile( "cone1.obj" )
     reader.reset()
     reader.parseFile( "Pawn.obj" )
+
 
 
 
