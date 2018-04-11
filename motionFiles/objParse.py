@@ -35,7 +35,7 @@ class ObjReader( object ):
             "MATERIAL_FILES": [],
             "OBJECT_LIST"   : [ self.DEFAULT ],
             "MATERIALS"     : {},
-            "CONTENT"       : {
+            "COMPONENTS"       : {
                     self.DEFAULT : {
                         "REMARKS"  : [],
                         "MATERIAL" : "",
@@ -101,24 +101,24 @@ class ObjReader( object ):
         return parser, mode
 
 
-    def _renameContent( self, old, new ):
+    def _renameCOMPONENTS( self, old, new ):
         ren_tasks = [] # [(old, new)...]
-        for content in self.obj_data["OBJECT_LIST"]:
-            if( content.startswith( old ) ):
-                ren_tasks.append( content, content.replace( old, new, 1 ) )
+        for COMPONENTS in self.obj_data["OBJECT_LIST"]:
+            if( COMPONENTS.startswith( old ) ):
+                ren_tasks.append( COMPONENTS, COMPONENTS.replace( old, new, 1 ) )
                 
         for task in ren_tasks:
             source, target = task
             idx = self.obj_data["OBJECT_LIST"].index( source )
             self.obj_data["OBJECT_LIST"][ idx ] = target
-            self.obj_data["CONTENT"][target] = self.obj_data["CONTENT"].pop( source )
+            self.obj_data["COMPONENTS"][target] = self.obj_data["COMPONENTS"].pop( source )
 
 
     def _parseRem( self, args ):
         if( "centimeters" in args.lower() ):
             print( "cm Scaled file" )
             self.scale = 10.
-        self.obj_data["CONTENT"][self.curr_tgt]["REMARKS"].append( args )
+        self.obj_data["COMPONENTS"][self.curr_tgt]["REMARKS"].append( args )
 
 
     def _parseVtx( self, args ):
@@ -148,16 +148,17 @@ class ObjReader( object ):
         self.curr_tgt = obj_name
         # rename if old
         if( self.curr_obj == self.DEFAULT ):
-            # rename any content having a "default" prefix
-            self._renameContent( self.DEFAULT, obj_name )
+            # rename any COMPONENTS having a "default" prefix
+            self._renameCOMPONENTS( self.DEFAULT, obj_name )
         else:
             # this is a new component
-            self.obj_data["CONTENT"][self.curr_tgt] = {
+            self.obj_data["COMPONENTS"][self.curr_tgt] = {
                 "REMARKS"  : [],
                 "MATERIAL" : "",
                 "GEO"      : [],
                 "GEO_MODE" : ""
             }
+            self.obj_data["OBJECT_LIST"].append( self.curr_tgt )
 
 
     def _parseGrp( self, args ):
@@ -165,18 +166,19 @@ class ObjReader( object ):
         grp_name = args.replace( " ", "_" )
         self.curr_grp = grp_name
         self.curr_tgt = ":".join( (self.curr_obj, grp_name) )
-        self.obj_data["CONTENT"][self.curr_tgt] = {
+        self.obj_data["COMPONENTS"][self.curr_tgt] = {
             "REMARKS"  : [],
             "MATERIAL" : "",
             "GEO"      : [],
             "GEO_MODE" : ""
         }
-
+        self.obj_data["OBJECT_LIST"].append( self.curr_tgt )
+        
 
     def _parseMtl( self, args ):
         if( args not in self.obj_data["MATERIAL_LIST"] ):
             self.obj_data["MATERIAL_LIST"].append( args )
-        self.obj_data["CONTENT"][self.curr_tgt]["MATERIAL"] = args
+        self.obj_data["COMPONENTS"][self.curr_tgt]["MATERIAL"] = args
 
 
     def _parseExt( self, args ):
@@ -185,7 +187,7 @@ class ObjReader( object ):
 
 
     def _parseFac( self, args ):
-        self.obj_data["CONTENT"][self.curr_tgt]["GEO"].append(
+        self.obj_data["COMPONENTS"][self.curr_tgt]["GEO"].append(
             self.currFaceParser( args ) )
 
             
@@ -222,7 +224,7 @@ class ObjReader( object ):
                     if( key == self.FACE_KEY ):
                         face_parser, face_mode = self._fingerprintFace( args )
                         self.currFaceParser = face_parser
-                        self.obj_data["CONTENT"][self.curr_tgt]["GEO_MODE"] = face_mode
+                        self.obj_data["COMPONENTS"][self.curr_tgt]["GEO_MODE"] = face_mode
                 else:
                     print( "Unexpected key '{}'".format( key ) )
                     exit()
@@ -232,7 +234,20 @@ class ObjReader( object ):
             
             parse( self, args )
         # loaded into dict
+        # Tidy up Components
+        del_list = []
+        for obj in self.obj_data["OBJECT_LIST"]:
+            if( len( self.obj_data["COMPONENTS"][obj]["GEO"] ) == 0 ):
+                # No GEO in component
+                if( ":" not in obj ):
+                    # root
+                    del_list.append( obj )
+                    # TODO: Remove defunct namespace
+        for victim in del_list:
+            del( self.obj_data["COMPONENTS"][ victim ] )
+            
         # remarshal data...
+        # self.scale * vtx
         # TODO!
 
 if( __name__ == "__main__" ):
