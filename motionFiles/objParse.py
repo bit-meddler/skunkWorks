@@ -20,8 +20,13 @@ class ObjReader( object ):
 
 
     DEFAULT = "__default__"
+
     
     def __init__( self ):
+        self.reset()
+
+        
+    def reset( self ):
         self.obj_data = {
             "VERTS"         : [],
             "TEX_UV"        : [],
@@ -217,7 +222,7 @@ class ObjReader( object ):
                     if( key == self.FACE_KEY ):
                         face_parser, face_mode = self._fingerprintFace( args )
                         self.currFaceParser = face_parser
-                        self.obj_data["CONTENT"][self.curr_tgt]["GEO_MOED"] = face_mode
+                        self.obj_data["CONTENT"][self.curr_tgt]["GEO_MODE"] = face_mode
                 else:
                     print( "Unexpected key '{}'".format( key ) )
                     exit()
@@ -233,9 +238,9 @@ class ObjReader( object ):
 if( __name__ == "__main__" ):
     # test...
     reader = ObjReader()
-    test = "cone1.obj"
-    reader.parseFile( test )
-
+    reader.parseFile( "cone1.obj" )
+    reader.reset()
+    reader.parseFile( "Pawn.obj" )
 
 
 
