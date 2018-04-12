@@ -103,25 +103,29 @@ class ObjReader( object ):
         return parser, mode
 
 
-    def _renameCOMPONENTS( self, old, new ):
+    def _renameComponents( self, old, new ):
         ren_tasks = [] # [(old, new)...]
-        for COMPONENTS in self.obj_data["OBJECT_LIST"]:
-            if( COMPONENTS.startswith( old ) ):
-                ren_tasks.append( COMPONENTS, COMPONENTS.replace( old, new, 1 ) )
+        for component in self.obj_data["OBJECT_LIST"]:
+            if( component.startswith( old ) ):
+                ren_tasks.append( (component, component.replace( old, new, 1 )) )
                 
         for task in ren_tasks:
             source, target = task
-            idx = self.obj_data["OBJECT_LIST"].index( source )
-            self.obj_data["OBJECT_LIST"][ idx ] = target
-            self.obj_data["COMPONENTS"][target] = self.obj_data["COMPONENTS"].pop( source )
+            idx = self.obj_data["OBJECT_LIST"].remove( source )
+            self.obj_data["OBJECT_LIST"].append( target )
+            if( target not in self.obj_data["COMPONENTS"].keys() ) :
+                self.obj_data["COMPONENTS"][target] = self.obj_data["COMPONENTS"].pop( source )
+            else:
+                print( "Name collision!" )
 
 
     def _parseRem( self, args ):
+        
         if( "centimeters" in args.lower() ):
             print( "cm Scaled file" )
             self.scale = 10.
         self.obj_data["COMPONENTS"][self.curr_tgt]["REMARKS"].append( args )
-
+        print self.obj_data["COMPONENTS"][self.curr_tgt]["REMARKS"]
 
     def _parseVtx( self, args ):
         self.obj_data[ "VERTS" ].append( self._parse_3f( args ) )
@@ -145,13 +149,14 @@ class ObjReader( object ):
     def _parseObj( self, args ):
         # set new name
         obj_name = args.replace( " ", "_" )
+        old_name = self.curr_obj
         self.curr_obj = obj_name
         self.curr_grp = ""
         self.curr_tgt = obj_name
         # rename if old
-        if( self.curr_obj == self.DEFAULT ):
-            # rename any COMPONENTS having a "default" prefix
-            self._renameCOMPONENTS( self.DEFAULT, obj_name )
+        if( old_name == self.DEFAULT ):
+            # rename any components having a "default" prefix
+            self._renameComponents( self.DEFAULT, obj_name )
         else:
             # this is a new component
             self.obj_data["COMPONENTS"][self.curr_tgt] = {
@@ -275,9 +280,8 @@ class ObjReader( object ):
                         self.obj_data["COMPONENTS"][self.curr_tgt]["GEO_MODE"] = face_mode
                 elif( line.startswith( self.COMMENT_KEY ) ):
                     # Phew just a comment
-                    print( "Unexpected key '{}'".format( key ) )
-                    print( fh.tell() )
-                    exit()
+                    self._parseRem( line[1:] )
+                    continue
                 else:
                     print( "Unexpected key '{}'".format( key ) )
                     print( fh.tell() )
