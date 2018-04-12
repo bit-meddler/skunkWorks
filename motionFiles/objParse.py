@@ -249,12 +249,15 @@ class ObjReader( object ):
             line = line.strip()
             if( line == "" ):
                 continue
+            
+            # the cost of excepting is amortized over runtime
+            # and unsplittable lines are very rare
             try:
                 key, args = line.split( " ", 1 )
             except ValueError:
                 # deal with common faults
                 if( line.startswith( self.COMMENT_KEY ) ):
-                    # just a comment
+                    # comment
                     continue
                 if( line.startswith( self.META_GRP_KEY ) ):
                     # blank group
@@ -270,8 +273,14 @@ class ObjReader( object ):
                         face_parser, face_mode = self._fingerprintFace( args )
                         self.currFaceParser = face_parser
                         self.obj_data["COMPONENTS"][self.curr_tgt]["GEO_MODE"] = face_mode
+                elif( line.startswith( self.COMMENT_KEY ) ):
+                    # Phew just a comment
+                    print( "Unexpected key '{}'".format( key ) )
+                    print( fh.tell() )
+                    exit()
                 else:
                     print( "Unexpected key '{}'".format( key ) )
+                    print( fh.tell() )
                     exit()
                     
                 last_key = key
@@ -301,7 +310,8 @@ if( __name__ == "__main__" ):
     reader.parseFile( "cone1.obj" )
     reader.reset()
     reader.parseFile( "Pawn.obj" )
-
+    reader.reset()
+    reader.parseFile( "leftfoot.obj" )
 
 
 
