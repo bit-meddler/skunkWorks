@@ -8,6 +8,7 @@
 """
 
 import numpy as np
+from xml.dom import minidom
 
 # In case we run out of precision
 FLOAT_T = np.float32
@@ -17,14 +18,25 @@ INT_T   = np.int32
 class ViconCamera( object ):
 
     def __init__( self, input_dict=None ):
-        self.hw_id = -1
-        self.type = ""
-        self.vicon_name = ""
-        self.px_aspect = -1
+        # camera data
+        self.hw_id       = -1 # unique id.  data is in id order in the x2d
+        self.type        = ""
+        self.vicon_name  = ""
+        self.px_aspect   = -1 # 
         self.sensor_type = ""
-        self.sensor_wh = [0,0]
-        self.user_id = -1
-        self.calibration = []
+        self.sensor_wh   = [0, 0] # px
+        self.user_id     = -1
+        
+        # raw calibration data
+        self._pp    = [0., 0.] # px
+        self._radial= [0., 0.] # k1, k2
+        self._pos   = [0., 0., 0.] # tx, ty, tz
+        self._rotQ  = [0., 0., 0., 0.] # Quartonions [x,y,z,w]
+        self._err   = 0. # rms reprojection error
+        self._skew  = 0. # ??
+        self._focal = 0. # f in sensor px?
+        
+        # computer matrixs
         self.K  = np.zeros( (3,3), dtype=FLOAT_T )
         self.R  = np.zeros( (3,3), dtype=FLOAT_T )
         self.T  = np.zeros( (3,),  dtype=FLOAT_T )
@@ -36,22 +48,41 @@ class ViconCamera( object ):
 
             
     def setFromDict( self, dict ):
-        pass
+        self.hw_id       = dict["DEVICEID"]
+        self.type        = dict["TYPE"]
+        self.vicon_name  = dict["NAME"]
+        self.px_aspect   = dict["PIXEL_ASPECT_RATIO"]
+        self.sensor_type = dict["SENSOR"]
+        self.sensor_wh   = dict["SENSOR_SIZE"]
+        self.user_id     = dict["USERID"]
+        self._pp         = dict["PRINCIPAL_POINT"]
+        self._radial     = dict["VICON_RADIAL"]
+        self._skew       = dict["SKEW"]
+        self._focal      = dict["FOCAL_LENGTH"]
+        self._pos        = dict["POSITION"]
+        self._rotQ       = dict["ORIENTATION"]
+        self._err        = dict["IMAGE_ERROR"]
+
+        self.computeMatrix()
 
 
-    def computerMatrix( self ):
+    def computeMatrix( self ):
         # compose RT
-
+        self.T = self._pos
+        # self.R = quaternionConv( self._rotQ )
+        self.RT[ :3, :3 ] = self.R
+        self.RT[ :, 3 ] = self.T # do I need to transform the T?
+        
         # compose K
-
+        # fiddle with focal length, aspect ratio and possibly skew
+        
         # compute P = K.RT
         self.P = np.dot( self.K, self.RT )
-        pass
 
 
     def projectPoints( self, points3D ):
         ret = np.zeros( ( points3D.shape[0], 3 ), dtype=FLOAT_T )
-        # ret = points3D * self.P
+        # ret = self.P * points3D
         return ret
 
 
@@ -60,23 +91,26 @@ class CalReader( object ):
 
     CASTS = {
         # Intrinsics
-        "PRINCIPAL_POINT"    : lambda x: np.array( x.split(), dtype=FLOAT_T),
-        "VICON_RADIAL"       : lambda x: np.array( x.split(), dtype=FLOAT_T),
+        "PRINCIPAL_POINT"    : lambda x: map( float, x.split() ),
+        "VICON_RADIAL"       : lambda x: map( float, x.split() ),
         "SKEW"               : float,
         "FOCAL_LENGTH"       : float,
         # extrinsics
         "ORIENTATION"        : lambda x: np.array( x.split(), dtype=FLOAT_T),
         "POSITION"           : lambda x: np.array( x.split(), dtype=FLOAT_T),
         # Meta Data
-        "SENSOR_SIZE"        : lambda x: np.array( x.split(), dtype=INT_T),
+        "SENSOR_SIZE"        : lambda x: map( int, x.split() ),
         "PIXEL_ASPECT_RATIO" : float,
         "DEVICEID"           : int,
-        "NAME"               : lambda x: x, # passtrue
+        "USERID"             : int,
+        "NAME"               : lambda x: x, # passthru
+        "SENSOR"             : lambda x: x, # passthru
+        "TYPE"               : lambda x: x, # passthru
         "IMAGE_ERROR"        : float,
     }
     
     CAMERA_ID_KEY = "DEVICEID"
-    CAMERA_ATTERS_HARDWARE = ( "NAME", "PIXEL_ASPECT_RATIO", "SENSOR", "SENSOR_SIZE", "SKEW", "TYPE", "USERID" )
+    CAMERA_ATTERS_HARDWARE = ( "DEVICEID", "NAME", "PIXEL_ASPECT_RATIO", "SENSOR", "SENSOR_SIZE", "SKEW", "TYPE", "USERID" )
     CAMERA_ATTERS_CALIBRATION = ( "FOCAL_LENGTH", "IMAGE_ERROR", "ORIENTATION", "POSITION", "PRINCIPAL_POINT", "VICON_RADIAL" )
     
     def __init__( self ):
@@ -85,7 +119,8 @@ class CalReader( object ):
 
     def reset( self ) :
         self.data = {}
-        self.cameras = []
+        self.cameras = {}
+        self.camera_order = []
         self.source_file = ""
         
 
@@ -95,36 +130,52 @@ class CalReader( object ):
             return -1
 
         mode = "XCP"
-
+        
+        self.source_file = file_path
+        
         if( file_path.lower().endswith( ".xcp" ) ):
             mode = "XCP"
         elif( file_path.lower().endswith( ".cp" ) ):
             print( "Error: .cp not yet supported" )
             return -1
-
+        
         if( mode == "XCP" ):
-            pass
+            XD = minidom.parse( file_path )
+            cameras = XD.getElementsByTagName( "Camera" )
+            
+            for camera in cameras:
+                # create dict
+                cid = camera.attributes[ CalReader.CAMERA_ID_KEY ].value.encode( "ascii" )
+                self.data[ cid ] = {}
+                # load camera data
+                for entry in CalReader.CAMERA_ATTERS_HARDWARE:
+                    self.data[ cid ][ entry ] = camera.attributes[ entry ].value.encode( "ascii" )
+
+                # load calibration data
+                kf_list = camera.getElementsByTagName( "KeyFrame" )
+                if( len( kf_list ) > 0 ):
+                    for entry in CalReader.CAMERA_ATTERS_CALIBRATION:
+                        self.data[ cid ][ entry ] = kf_list[0].attributes[ entry ].value.encode( "ascii" )
+                        
+                # cast
+                for atter, cast in self.CASTS.iteritems():
+                    self.data[ cid ][ atter ] = cast( self.data[ cid ][ atter ] )
+                
+        for cam_id, cam_data in self.data.iteritems():
+            camera = ViconCamera( cam_data )
+            self.cameras[ int( cam_id ) ] = camera
+
+        self.camera_order = sorted( self.cameras.keys() )
+        
 
 if( __name__ == "__main__" ):
     # testing reading an xml
     file_path = r"170202_WictorK_Body_ROM_01.xcp"
 
-    from xml.dom import minidom
-    XD = minidom.parse( file_path )
-    cameras = XD.getElementsByTagName( "Camera" )
-    print( "{} Cameras found.".format( len( cameras ) ) )
-    cam_dict = {}
-    for camera in cameras:
-        id = camera.attributes[ CalReader.CAMERA_ID_KEY ].value.encode( "ascii" )
-        cam_dict[ id ] = {}
-        
-        for entry in CalReader.CAMERA_ATTERS_HARDWARE:
-            cam_dict[ id ][ entry ] = camera.attributes[ entry ].value.encode( "ascii" )
-            
-        kf_list = camera.getElementsByTagName( "KeyFrame" )
-        
-        if( len( kf_list ) > 0 ):
-            for entry in CalReader.CAMERA_ATTERS_CALIBRATION:
-                cam_dict[ id ][ entry ] = kf_list[0].attributes[ entry ].value.encode( "ascii" )
-                
-    print( "Done!" )
+    cal_reader = CalReader()
+    cal_reader.read( file_path )
+    
+    for cid in cal_reader.camera_order:
+        cam = cal_reader.cameras[ cid ]
+        print( "Camera '{}' is a {} with user id '{}' and a sensor size of {}".format(
+            cid, cam.type, cam.user_id, cam.sensor_wh ) )
