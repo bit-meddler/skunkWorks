@@ -30,6 +30,15 @@ def formRot( angle, axis=(1.,0.,0.) ):
 
     return M
 
+
+def rot2Angles( M ):
+    yaw   = np.arctan2(  M[1,0], M[0,0] )
+    pitch = np.arctan2( -M[2,0], np.sqrt( M[2,1]**2. + M[2,2]**2. ) )
+    roll  = np.arctan2(  M[2,1], M[2,2] )
+
+    return roll, pitch, yaw 
+
+
 class Quaternion( object ):
     
     def __init__( self, x=0., y=0., z=0., w=0. ):
@@ -118,6 +127,43 @@ class Quaternion( object ):
 
         return M
 
+    
+    def toRotMat2( self ):
+        # http://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToMatrix/index.htm
+        M = np.zeros( (3,3), dtype=np.float32 )
+
+        XX = self.X * self.X
+        XY = self.X * self.Y
+        XZ = self.X * self.Z
+        XW = self.X * self.W
+
+        YY = self.Y * self.Y
+        YZ = self.Y * self.Z
+        YW = self.Y * self.W
+        
+        ZZ = self.Z * self.Z
+        ZW = self.Z * self.W
+
+        WW = self.W * self.W
+        
+        # x
+        M[0,0] =  (WW + XX - YY - ZZ)
+        M[1,0] = -2. * (XY + ZW)
+        M[2,0] = -2. * (XZ - YW)
+
+        # y
+        M[0,1] =  2. * (XY - ZW)
+        M[1,1] = -(WW - XX + YY - ZZ)
+        M[2,1] = -2. * (YZ + XW)
+
+        # z
+        M[0,2] =  2. * (XZ + YW)
+        M[1,2] = -2. * (YZ - XW)
+        M[2,2] = -(WW - XX - YY + ZZ)
+
+        return M
+
+    
     def toAngles( self ):
         # http://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToEuler/index.htm
         x, y, z = 0., 0., 0.
@@ -156,6 +202,10 @@ class Quaternion( object ):
             z = np.arctan2( ((2. * YW) - (2. * XZ)) , (XX - YY - ZZ + WW) )
         return (x, y, z)
 
+
+    def toAngles2( self ):
+        return rot2Angles( self.toRotMat() )
+
     
     def __str__( self ):
         return "Quaternion X:{} Y:{} Z:{} W:{}".format(
@@ -190,7 +240,9 @@ if( __name__ == "__main__" ):
     B = formRot( angle2, axis=(0.,1.,0.))
     M = np.matmul( B, A ) # post multiply
     print M
+    print  np.degrees(rot2Angles( M ) )
     q.fromAngles( angle, angle2, 0. )
     print q
     print q.toRotMat()
+    print  np.degrees(rot2Angles( q.toRotMat() ) )
     print np.degrees( q.toAngles() )

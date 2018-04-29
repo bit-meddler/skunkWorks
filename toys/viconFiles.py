@@ -72,9 +72,9 @@ class ViconCamera( object ):
         # compose RT
         self.T = self._pos
 
-        w, x, y, z = self._rotQ
+        x, y, z, w = self._rotQ
         self.Q.setQ( x, y, z, w )
-        self.R = self.Q.toRotMat()
+        self.R = self.Q.toRotMat2()
 
         self.RT[ :3, :3 ] = self.R
         self.RT[ :, 3 ]   = self.T # do I need to transform the T?
@@ -184,5 +184,5 @@ if( __name__ == "__main__" ):
     for cid in cal_reader.camera_order:
         cam = cal_reader.cameras[ cid ]
         print( "Camera '{}' is at T:{} R:{}".format(
-            cid, cam.T, np.degrees( cam.Q.toAngles() ) ) )
+            cid, cam.T, np.degrees( cam.Q.toAngles2() ) ) )
     print( "Eggs" )
