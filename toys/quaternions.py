@@ -206,6 +206,27 @@ class Quaternion( object ):
     def toAngles2( self ):
         return rot2Angles( self.toRotMat() )
 
+
+    def toAngles3( self ):
+        # https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_Angles_Conversion
+        x, y, z = 0., 0., 0.
+        
+        YY = self.Y * self.Y
+        sx = 2. * (self.W * self.X + self.Y * self.Z)
+        cx = 1. - 2. * (self.X * self.X + YY)
+        x = np.arctan2( sx, cx )
+
+        sy =  2. * (self.W * self.Y - self.Z * self.X)
+        sy =  1. if sy > +1.0 else sy
+        sy = -1. if sy < -1.0 else sy
+        y = np.arcsin( sy )
+
+        sz = 2. * (self.W * self.Z + self.X * self.Y)
+        cz = 1. - 2. * (YY + self.Z * self.Z)
+        z = np.arctan2( sz, cz )
+
+        return (x, y, z)
+
     
     def __str__( self ):
         return "Quaternion X:{} Y:{} Z:{} W:{}".format(
@@ -220,7 +241,7 @@ if( __name__ == "__main__" ):
 
     print( "----------------------------" )
 
-    angle = np.radians( 60 )
+    angle = np.radians( 90 )
     angle2 = np.radians( 45 )
 
     q = Quaternion()
@@ -228,21 +249,21 @@ if( __name__ == "__main__" ):
     print( formRot( angle ) )
     print q
     print q.toRotMat()
-    print np.degrees( q.toAngles() )
+    print np.degrees( q.toAngles3() )
 
     q.fromAngles( angle2, 0, 0. )
     print( formRot( angle2 ) )
     print q
     print q.toRotMat()
-    print np.degrees( q.toAngles() )
+    print np.degrees( q.toAngles3() )
     
     A = formRot( angle,  axis=(1.,0.,0.))
     B = formRot( angle2, axis=(0.,1.,0.))
     M = np.matmul( B, A ) # post multiply
     print M
-    print  np.degrees(rot2Angles( M ) )
+    print np.degrees(rot2Angles( M ) )
     q.fromAngles( angle, angle2, 0. )
     print q
     print q.toRotMat()
-    print  np.degrees(rot2Angles( q.toRotMat() ) )
-    print np.degrees( q.toAngles() )
+    print np.degrees(rot2Angles( q.toRotMat() ) )
+    print np.degrees( q.toAngles3() )

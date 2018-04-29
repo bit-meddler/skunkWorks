@@ -184,5 +184,5 @@ if( __name__ == "__main__" ):
     for cid in cal_reader.camera_order:
         cam = cal_reader.cameras[ cid ]
         print( "Camera '{}' is at T:{} R:{}".format(
-            cid, cam.T, np.degrees( cam.Q.toAngles2() ) ) )
+            cid, cam.T, np.degrees( cam.Q.toAngles3() ) ) )
     print( "Eggs" )
