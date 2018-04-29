@@ -9,7 +9,7 @@ def formRot( angle, axis=(1.,0.,0.) ):
     v = 1.0 - c
 
     vx  = v * axis[0]
-    vy  = v * axis[1]		
+    vy  = v * axis[1]
     vz  = v * axis[2]
 
     sx  = s * axis[0]
@@ -32,21 +32,27 @@ def formRot( angle, axis=(1.,0.,0.) ):
 
 class Quaternion( object ):
     
-    def __init__( self ):
-        self.X = 0.
-        self.Y = 0.
-        self.Z = 0.
-        self.W = 0.
+    def __init__( self, x=0., y=0., z=0., w=0. ):
+        self.setQ( x, y, z, w )
 
 
+    def setQ( self, x=0., y=0., z=0., w=0. ):
+        self.X = x
+        self.Y = y
+        self.Z = z
+        self.W = w
+        if( (x + y + z + w) > 0.0 ):
+            self.normalize()
+
+        
     def normalize( self ):
         #
         s = self.X*self.X + self.Y*self.Y + self.Z*self.Z + self.W*self.W
-        if( s == 1.):
+        if( s == 1.0 ):
             # allready normalised
             return
-        
-        if( s > 1e-8 ):
+
+        if( s < 1e-8 ):
             print( "Danger Div by Zero (Quartonion:normalize)" )
             return
         
@@ -156,33 +162,35 @@ class Quaternion( object ):
             self.X, self.Y, self.Z, self.W )
 
 
-angle = np.radians( 90 )
-print( np.cos( angle ), np.sin( angle ) )
-for axis in ( (1.,0.,0.),(0.,1.,0.), (0.,0.,1.) ):
-    print( formRot( angle, axis ) )
+if( __name__ == "__main__" ):
+    angle = np.radians( 90 )
+    print( np.cos( angle ), np.sin( angle ) )
+    for axis in ( (1.,0.,0.),(0.,1.,0.), (0.,0.,1.) ):
+        print( formRot( angle, axis ) )
 
-print( "----------------------------" )
+    print( "----------------------------" )
 
-angle = np.radians( 90 )
-angle2 = np.radians( 45 )
+    angle = np.radians( 60 )
+    angle2 = np.radians( 45 )
 
-q = Quaternion()
-q.fromAngles( angle, 0., 0. )
-print( formRot( angle ) )
-print q
-print q.toRotMat()
-print np.degrees( q.toAngles() )
+    q = Quaternion()
+    q.fromAngles( angle, 0., 0. )
+    print( formRot( angle ) )
+    print q
+    print q.toRotMat()
+    print np.degrees( q.toAngles() )
 
-q.fromAngles( angle2, 0, 0. )
-print( formRot( angle2 ) )
-print q
-print q.toRotMat()
-print np.degrees( q.toAngles() )
-A = formRot( angle,  axis=(1.,0.,0.))
-B = formRot( angle2, axis=(0.,1.,0.))
-M = np.matmul( B, A ) # post multiply
-print M
-q.fromAngles( angle, angle2, 0. )
-print q
-print q.toRotMat()
-print np.degrees( q.toAngles() )
+    q.fromAngles( angle2, 0, 0. )
+    print( formRot( angle2 ) )
+    print q
+    print q.toRotMat()
+    print np.degrees( q.toAngles() )
+    
+    A = formRot( angle,  axis=(1.,0.,0.))
+    B = formRot( angle2, axis=(0.,1.,0.))
+    M = np.matmul( B, A ) # post multiply
+    print M
+    q.fromAngles( angle, angle2, 0. )
+    print q
+    print q.toRotMat()
+    print np.degrees( q.toAngles() )

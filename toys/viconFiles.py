@@ -9,6 +9,7 @@
 
 import numpy as np
 from xml.dom import minidom
+from quaternions import Quaternion
 
 # In case we run out of precision
 FLOAT_T = np.float32
@@ -19,7 +20,7 @@ class ViconCamera( object ):
 
     def __init__( self, input_dict=None ):
         # camera data
-        self.hw_id       = -1 # unique id.  data is in id order in the x2d
+        self.hw_id       = -1 # uniue id.  data is in id order in the x2d
         self.type        = ""
         self.vicon_name  = ""
         self.px_aspect   = -1 # 
@@ -31,14 +32,15 @@ class ViconCamera( object ):
         self._pp    = [0., 0.] # px
         self._radial= [0., 0.] # k1, k2
         self._pos   = [0., 0., 0.] # tx, ty, tz
-        self._rotQ  = [0., 0., 0., 0.] # Quartonions [x,y,z,w]
+        self._rot  = [0., 0., 0., 0.] # uartonions [x,y,z,w]
         self._err   = 0. # rms reprojection error
         self._skew  = 0. # ??
         self._focal = 0. # f in sensor px?
         
-        # computer matrixs
-        self.K  = np.zeros( (3,3), dtype=FLOAT_T )
-        self.R  = np.zeros( (3,3), dtype=FLOAT_T )
+        # computed matrixs
+        self.K  = np.eye( 3, dtype=FLOAT_T )
+        self.R  = np.eye( 3, dtype=FLOAT_T )
+        self.Q  = Quaternion()
         self.T  = np.zeros( (3,),  dtype=FLOAT_T )
         self.RT = np.zeros( (3,4), dtype=FLOAT_T )
         self.P  = np.zeros( (3,4), dtype=FLOAT_T )
@@ -69,9 +71,13 @@ class ViconCamera( object ):
     def computeMatrix( self ):
         # compose RT
         self.T = self._pos
-        # self.R = quaternionConv( self._rotQ )
+
+        w, x, y, z = self._rotQ
+        self.Q.setQ( x, y, z, w )
+        self.R = self.Q.toRotMat()
+
         self.RT[ :3, :3 ] = self.R
-        self.RT[ :, 3 ] = self.T # do I need to transform the T?
+        self.RT[ :, 3 ]   = self.T # do I need to transform the T?
         
         # compose K
         # fiddle with focal length, aspect ratio and possibly skew
@@ -177,5 +183,6 @@ if( __name__ == "__main__" ):
     
     for cid in cal_reader.camera_order:
         cam = cal_reader.cameras[ cid ]
-        print( "Camera '{}' is a {} with user id '{}' and a sensor size of {}".format(
-            cid, cam.type, cam.user_id, cam.sensor_wh ) )
+        print( "Camera '{}' is at T:{} R:{}".format(
+            cid, cam.T, np.degrees( cam.Q.toAngles() ) ) )
+    print( "Eggs" )
