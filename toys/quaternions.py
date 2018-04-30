@@ -201,7 +201,7 @@ class Quaternion( object ):
 
 
     def toAngles2( self ):
-        return rot2Angles( self.toRotMat() )
+        return rot2Angles( self.toRotMat2() )
 
 
     def toAngles3( self ):

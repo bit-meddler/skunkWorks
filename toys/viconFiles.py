@@ -74,13 +74,13 @@ class ViconCamera( object ):
 
         x, y, z, w = self._rotQ
         self.Q.setQ( x, y, z, w )
-        self.R = self.Q.toRotMat3()
+        self.R = self.Q.toRotMat2()
 
         self.RT[ :3, :3 ] = self.R
         self.RT[ :, 3 ]   = self.T # do I need to transform the T?
         
         # compose K
-        # fiddle with focal length, aspect ratio and possibly skew
+        # fiddle with PP, focal length, aspect ratio and possibly skew
         
         # compute P = K.RT
         self.P = np.dot( self.K, self.RT )
