@@ -32,7 +32,7 @@ class ViconCamera( object ):
         self._pp    = [0., 0.] # px
         self._radial= [0., 0.] # k1, k2
         self._pos   = [0., 0., 0.] # tx, ty, tz
-        self._rot  = [0., 0., 0., 0.] # uartonions [x,y,z,w]
+        self._rotQ  = [0., 0., 0., 0.] # uartonions [x,y,z,w]
         self._err   = 0. # rms reprojection error
         self._skew  = 0. # ??
         self._focal = 0. # f in sensor px?
@@ -74,7 +74,7 @@ class ViconCamera( object ):
 
         x, y, z, w = self._rotQ
         self.Q.setQ( x, y, z, w )
-        self.R = self.Q.toRotMat2()
+        self.R = self.Q.toRotMat3()
 
         self.RT[ :3, :3 ] = self.R
         self.RT[ :, 3 ]   = self.T # do I need to transform the T?
@@ -184,5 +184,13 @@ if( __name__ == "__main__" ):
     for cid in cal_reader.camera_order:
         cam = cal_reader.cameras[ cid ]
         print( "Camera '{}' is at T:{} R:{}".format(
-            cid, cam.T, np.degrees( cam.Q.toAngles3() ) ) )
+            cid, cam.T, np.degrees( cam.Q.toAngles2() ) ) )
     print( "Eggs" )
+
+    # examining this in blade, the rot should be [166.497, -84.23, -119.151]
+    cam = cal_reader.cameras[ 2107343 ]
+
+    print np.degrees( cam.Q.toAngles()  )
+    print np.degrees( cam.Q.toAngles2() )
+    print np.degrees( cam.Q.toAngles3() )
+    

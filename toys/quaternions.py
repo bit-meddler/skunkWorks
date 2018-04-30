@@ -127,7 +127,6 @@ class Quaternion( object ):
 
         return M
 
-    
     def toRotMat2( self ):
         # http://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToMatrix/index.htm
         M = np.zeros( (3,3), dtype=np.float32 )
@@ -143,23 +142,21 @@ class Quaternion( object ):
         
         ZZ = self.Z * self.Z
         ZW = self.Z * self.W
-
-        WW = self.W * self.W
         
         # x
-        M[0,0] =  (WW + XX - YY - ZZ)
-        M[1,0] = -2. * (XY + ZW)
-        M[2,0] = -2. * (XZ - YW)
+        M[0,0] = 1. - 2. * YY - 2. * ZZ
+        M[0,1] =      2. * XY + 2. * ZW
+        M[0,2] =      2. * XZ - 2. * YW
 
         # y
-        M[0,1] =  2. * (XY - ZW)
-        M[1,1] = -(WW - XX + YY - ZZ)
-        M[2,1] = -2. * (YZ + XW)
+        M[1,0] =      2. * XY - 2. * ZW
+        M[1,1] = 1. - 2. * XX - 2. * ZZ
+        M[1,2] =      2. * YZ + 2. * XW
 
         # z
-        M[0,2] =  2. * (XZ + YW)
-        M[1,2] = -2. * (YZ - XW)
-        M[2,2] = -(WW - XX - YY + ZZ)
+        M[2,0] =      2. * XZ + 2. * YW
+        M[2,1] =      2. * YZ - 2. * XW
+        M[2,2] = 1. - 2. * XX - 2. * YY
 
         return M
 
@@ -267,3 +264,28 @@ if( __name__ == "__main__" ):
     print q.toRotMat()
     print np.degrees(rot2Angles( q.toRotMat() ) )
     print np.degrees( q.toAngles3() )
+
+    print( "----------------------------" )
+    # 2107343 test
+    x, y, z, w = -0.305359643181186, 0.675003109597591, -0.262267007345134, 0.61833834363402
+    true_true = np.array( [ 166.443497, -84.229225, -119.051704 ] )
+    
+    q.setQ( x, y, z, w )
+    print q
+    
+    m1 = q.toRotMat()
+    m2 = q.toRotMat2()
+
+    print m1
+    print m2
+
+    print np.allclose( m1.T, m2 )
+    print true_true
+    d1 = np.degrees( rot2Angles( m1.T ) )
+    d2 = np.degrees( rot2Angles( m2 ) )
+    print d1
+    print d2
+    print true_true - d1
+
+        
+    
