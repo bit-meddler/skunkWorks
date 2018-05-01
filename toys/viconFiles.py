@@ -69,23 +69,55 @@ class ViconCamera( object ):
 
 
     def computeMatrix( self ):
+        # see also: http://run.usc.edu/cs420-s15/lec05-viewing/05-viewing-6up.pdf
         # compose RT
         self.T = self._pos
 
         x, y, z, w = self._rotQ
         self.Q.setQ( x, y, z, w )
-        self.R = self.Q.toRotMat2()
-
+        # These transposed RotMats are driving me mad!
+        self.R = self.Q.toRotMat2().T
+        self.R = self.Q.toRotMat()
+        
+        # from Vicon's "Cara Reference" pdf (/Fileformats/XCP)
+        # Assuming (!) XCPs are the same between products
+        # P = [ R | -RT ]
         self.RT[ :3, :3 ] = self.R
-        self.RT[ :, 3 ]   = self.T # do I need to transform the T?
+        self.RT[ :, 3 ]   = -np.matmul( self.R, self.T )
         
         # compose K
-        # fiddle with PP, focal length, aspect ratio and possibly skew
+        # fiddle with PP, focal length, aspect ratio and skew (which in all encountered files is zero0
+        a           = self.px_aspect
+        x_pp, y_pp  = self._pp
+        f           = self._focal
+        k           = self._skew
+        
+        self.K = np.array(
+            [ [  f,     k, x_pp ],
+              [ 0., (f/a), y_pp ],
+              [ 0.,    0.,   1. ] ] , dtype=FLOAT_T )
         
         # compute P = K.RT
-        self.P = np.dot( self.K, self.RT )
+        self.P = np.matmul( self.K, self.RT )
 
 
+    def undistort( self, point ):
+        # As Vicon doesn't use NDCs the undistort is computed per det - dumb!
+        a          = self.px_aspect
+        w1, w2     = self._radial
+        x_pp, y_pp = self._pp
+        # Again from the CaraPost Refference pdf
+        x_r, y_r = point
+        dp = [ x_r - x_pp, a * ( y_r - y_pp ) ]
+        print dp
+        r = np.linalg.norm( dp )
+        print r
+        s = 1 + w1 * r**1 + w2 * r**2
+        print s
+        ud = [ s * dp[0] + x_pp, (s * dp[1] + y_pp)/a ]
+        print ud
+
+        
     def projectPoints( self, points3D ):
         ret = np.zeros( ( points3D.shape[0], 3 ), dtype=FLOAT_T )
         # ret = self.P * points3D
@@ -185,12 +217,16 @@ if( __name__ == "__main__" ):
         cam = cal_reader.cameras[ cid ]
         print( "Camera '{}' is at T:{} R:{}".format(
             cid, cam.T, np.degrees( cam.Q.toAngles2() ) ) )
-    print( "Eggs" )
 
     # examining this in blade, the rot should be [166.497, -84.23, -119.151]
     cam = cal_reader.cameras[ 2107343 ]
-
+    
     print np.degrees( cam.Q.toAngles()  )
     print np.degrees( cam.Q.toAngles2() )
     print np.degrees( cam.Q.toAngles3() )
+    
+    # 178, 408, 142 is about the center of 2107343
+    x, y, z = np.matmul( cam.P, np.array( [-178.20, -408.21, 142.86, 1.] ) )
+    print x/z, y/z
+    # not bad :)
     
