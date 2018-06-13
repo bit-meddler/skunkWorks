@@ -179,6 +179,8 @@ def genLUT():
     out += "}"
     print out
 
-rotMats = genAllRots()
+#rotMats = genAllRots()
+#genLUT()
 
-genLUT()
+
+print _homoTest()
