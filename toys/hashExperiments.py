@@ -7,26 +7,83 @@
 import numpy as np
 import math
 
-def hash_nieve( x, y, cell_sz ):
+def hash_nieve( x, y, res, num_cells ):
     # round Vs floor?
-    h_x = round( x / cell_sz )
-    h_y = round( y / cell_sz ) * cell_sz
+    divisor = res / num_cells
+    h_x = math.floor( x / divisor )
+    h_y = math.floor( y / divisor ) * num_cells
     return int( h_x + h_y )
 
-# expect a 512x512 sensor, 32x32 buckets
-SZ = 512. / 32
-print SZ
-dets = [ [0,0], [2,2], [10,10],
-         [16,2], [17,2], [18,2], [30,2], [31,2], [32,2],
-         [16,10], [17,10], [18,10],
-         [45,45], [55,55],
-         [256,256], [260,260], [270,270],
-         [400,400], [500,500], [511,511], [512,512] ]
 
-for x, y in dets:
-    print x, y, hash_nieve( x, y, SZ )
+# expect a 512x512 sensor, 32x32 buckets
+RES = 1024.
+CELLS = 32
+print( "Sensor resolution: {}, Cells: {}".format( RES, CELLS**2 ) )
+
+if False:
+    dets = [ [0,0], [2,2], [10,10],
+             [16,2], [17,2], [18,2], [30,2], [31,2], [32,2],
+             [16,10], [17,10], [18,10],
+             [45,45], [55,55],
+             [256,256], [260,260], [270,270],
+             [400,400], [500,500], [511,511], [512,512] ]
+    for x, y in dets:
+        print x, y, hash_nieve( x, y, RES, CELLS )
+
 
 if False:    
     for y in range( 4, 69, 8 ):
         for x in range( 1, 64, 4 ):
-            print x, y, hash_nieve( x, y, SZ )
+            print x, y, hash_nieve( x, y, RES, CELLS )
+            
+d={}
+if False:
+    for x in range( 0, RES, 3 ):
+        for y in range( 0, RES, 3 ):
+            h = hash_nieve( x, y, RES, CELLS )
+            if h in d:
+                d[h].append( (x,y) )
+            else:
+                d[h] = [ (x,y) ]
+
+if True:
+    from random import randint
+    for i in range( 800 ):
+        x = randint( 0, RES )
+        y = randint( 0, RES )
+        h = hash_nieve( x, y, RES, CELLS )
+        if h in d:
+            d[h].append( (x,y) )
+        else:
+            d[h] = [ (x,y) ]
+
+    # Visualize buckets & ocupancy.
+    x = sorted( d.keys() )
+    from Tkinter import *
+    master = Tk()
+    canvas = Canvas( master, width=300, height=300, bg='white' )
+    canvas.pack( expand=YES, fill=BOTH )                
+    cols = [ 'red', 'green', 'blue', 'black', 'yellow' ]
+    extents={}
+    for i, k in enumerate( x ):
+        v = d[k]
+        TL, BR = min( v ), max( v )
+        extents[ k ] = ( TL, BR )
+        canvas.create_rectangle( TL[0], TL[1], BR[0], BR[1],
+                                 width=0, fill=cols[i%len(cols)],
+                                 tags="k_{}".format( k )
+        )
+    print( "buckets used: {}".format( len( x ) ) )
+    def _canvCB( e ):
+        X = canvas.find_withtag( CURRENT )
+        t = canvas.gettags( X )
+        if( len( t ) > 0 ):
+            _,val = t[0].split('_')
+            k = int( val )
+            c = len( d[ k ] )
+            print k, c, extents[ k ]
+    canvas.bind( "<Button-1>", _canvCB )
+    mainloop()
+
+    # 4 neighbors = N + 1, N - 1; N-16, N+16;
+    # 8 neighbours = N-1, N+1; N-15, N-17, N-17; N+15, N+16, N+17
