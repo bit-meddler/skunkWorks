@@ -6,6 +6,9 @@
 """
 import numpy as np
 import math
+from random import randint
+from Tkinter import *
+
 
 def hash_nieve( x, y, res, num_cells ):
     # round Vs floor?
@@ -15,8 +18,30 @@ def hash_nieve( x, y, res, num_cells ):
     return int( h_x + h_y )
 
 
+class Hash2D( object ):
+    
+    def __init__( self, res, cells ):
+        self.res = float( res )
+        self.cells = float( cells )
+        self.divisor = self.res/self.cells
+
+        
+    def hashPair( self, x, y ):
+        h_x = math.floor( x / self.divisor )
+        h_y = math.floor( y / self.divisor ) * self.cells
+        return int( h_x + h_y )
+
+    def hashList( self, list ):
+        # assumes Nx2 np.array
+        ret = np.zeros_like( list )
+        ret[:,0] = np.floor( list[:,0] / self.divisor )
+        ret[:,1] = np.floor( list[:,1] / self.divisor )
+        ret[:,1] *= self.cells
+        return np.array( np.sum( ret, axis=1 ), dtype=np.int )
+
+    
 # expect a 512x512 sensor, 32x32 buckets
-RES = 1024.
+RES = 512.
 CELLS = 32
 print( "Sensor resolution: {}, Cells: {}".format( RES, CELLS**2 ) )
 
@@ -46,8 +71,7 @@ if False:
             else:
                 d[h] = [ (x,y) ]
 
-if True:
-    from random import randint
+if False:
     for i in range( 800 ):
         x = randint( 0, RES )
         y = randint( 0, RES )
@@ -59,7 +83,7 @@ if True:
 
     # Visualize buckets & ocupancy.
     x = sorted( d.keys() )
-    from Tkinter import *
+    
     master = Tk()
     canvas = Canvas( master, width=300, height=300, bg='white' )
     canvas.pack( expand=YES, fill=BOTH )                
@@ -85,5 +109,49 @@ if True:
     canvas.bind( "<Button-1>", _canvCB )
     mainloop()
 
-    # 4 neighbors = N + 1, N - 1; N-16, N+16;
-    # 8 neighbours = N-1, N+1; N-15, N-17, N-17; N+15, N+16, N+17
+# Now try matching to sets of 2D points that have been peturbed
+num = 144
+X  = np.random.uniform( 0, RES, (num,2) )
+Z = X + np.random.uniform( -5, 5, (num,2) )
+for i in range( num/10 ):
+    sign = ((i % 2) * -2) + 1
+    magnitude = np.random.uniform( 12, 55 ) * sign # some will be outlyers
+    idx = randint(0,num-1)
+    print idx, magnitude
+    Z[ idx ] += magnitude
+    
+master = Tk()
+canvas = Canvas( master, width=300, height=300, bg='white' )
+canvas.pack( expand=YES, fill=BOTH )
+
+hasher = Hash2D( RES, CELLS )
+X_h = hasher.hashList( X )
+Z_h = hasher.hashList( Z )
+
+print X_h
+
+for i in range( num ):
+    x,y = X[ i ]
+    canvas.create_rectangle( x-1, y-1, x+1, y+1,
+                                 width=0, fill='red',
+                                 tags="X_{}".format( i )
+    )
+    x,y = Z[ i ]
+    canvas.create_rectangle( x-1, y-1, x+1, y+1,
+                                 width=0, fill='blue',
+                                 tags="Z_{}".format( i )
+    )
+
+def _canvCB( e ):
+    X = canvas.find_withtag( CURRENT )
+    t = canvas.gettags( X )
+    if( len( t ) > 0 ):
+        _,val = t[0].split('_')
+        k = int( val )
+        print k
+
+        
+canvas.bind( "<Button-1>", _canvCB )
+mainloop()
+# 4 neighbors = N + 1, N - 1; N-16, N+16;
+# 8 neighbours = N-1, N+1; N-15, N-17, N-17; N+15, N+16, N+17
