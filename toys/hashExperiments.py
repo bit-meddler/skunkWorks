@@ -31,6 +31,7 @@ class Hash2D( object ):
         h_y = math.floor( y / self.divisor ) * self.cells
         return int( h_x + h_y )
 
+
     def hashList( self, list ):
         # assumes Nx2 np.array
         ret = np.zeros_like( list )
@@ -38,6 +39,14 @@ class Hash2D( object ):
         ret[:,1] = np.floor( list[:,1] / self.divisor )
         ret[:,1] *= self.cells
         return np.array( np.sum( ret, axis=1 ), dtype=np.int )
+
+
+    def bucket2center( self, bid ):
+        y, x = divmod( bid, self.cells )
+        hd = self.divisor / 2.
+        y = (y * self.divisor) + hd
+        x = (x * self.divisor) + hd
+        return x, y
 
     
 # expect a 512x512 sensor, 32x32 buckets
@@ -125,6 +134,7 @@ canvas = Canvas( master, width=300, height=300, bg='white' )
 canvas.pack( expand=YES, fill=BOTH )
 
 hasher = Hash2D( RES, CELLS )
+print hasher.divisor
 X_h = hasher.hashList( X )
 Z_h = hasher.hashList( Z )
 
@@ -141,6 +151,13 @@ for i in range( num ):
                                  width=0, fill='blue',
                                  tags="Z_{}".format( i )
     )
+hd = hasher.divisor / 2
+for h in X_h:
+    x,y = hasher.bucket2center( h )
+    canvas.create_rectangle( x-hd, y-hd, x+hd, y+hd,
+                                 width=1, #fill='blue',
+                                 tags="Z_{}".format( i )
+    )
 
 def _canvCB( e ):
     X = canvas.find_withtag( CURRENT )
@@ -148,7 +165,7 @@ def _canvCB( e ):
     if( len( t ) > 0 ):
         _,val = t[0].split('_')
         k = int( val )
-        print k
+        print X_h[ k ], hasher.bucket2center( X_h[ k ])
 
         
 canvas.bind( "<Button-1>", _canvCB )
