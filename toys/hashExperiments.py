@@ -26,7 +26,7 @@ class Hash2D( object ):
         self.divisor = self.res/self.cells
 
         
-    def hashPair( self, x, y ):
+    def hashOne( self, x, y ):
         h_x = math.floor( x / self.divisor )
         h_y = math.floor( y / self.divisor ) * self.cells
         return int( h_x + h_y )
@@ -48,6 +48,23 @@ class Hash2D( object ):
         x = (x * self.divisor) + hd
         return x, y
 
+    def pair( self, old_dets, old_hash, new_dets, new_hash, slack ):
+        """ old is a 'truthy' list of detections + hash
+            new is a 'unknown' list of detections + hash
+        """
+        new_occ = set( new_hash )
+        # with an old hash, look to see if buckets around it are ocupied
+        for h in old_hash:
+            h_cands=[]
+            for modifyer in [ -33, -32, -31, -1, 0, 1, 31, 32, 33 ]:
+                if( h+modifyer in new_occ ):
+                    h_cands.append( h )
+
+            for bin in h_cands:
+                idxs = old_hash == bin
+                bins = old_hash[ idxs ]
+                print bins
+                # relate old bin to new somehow????
     
 # expect a 512x512 sensor, 32x32 buckets
 RES = 512.
@@ -119,9 +136,12 @@ if False:
     mainloop()
 
 # Now try matching to sets of 2D points that have been peturbed
-num = 144
+num = 12
 X  = np.random.uniform( 0, RES, (num,2) )
-Z = X + np.random.uniform( -5, 5, (num,2) )
+Z_ = X + np.random.uniform( -5, 5, (num,2) )
+Z = np.array( Z_ )
+np.random.shuffle( Z ) # new data may be out of order!
+
 for i in range( num/10 ):
     sign = ((i % 2) * -2) + 1
     magnitude = np.random.uniform( 12, 55 ) * sign # some will be outlyers
@@ -134,11 +154,8 @@ canvas = Canvas( master, width=300, height=300, bg='white' )
 canvas.pack( expand=YES, fill=BOTH )
 
 hasher = Hash2D( RES, CELLS )
-print hasher.divisor
 X_h = hasher.hashList( X )
 Z_h = hasher.hashList( Z )
-
-print X_h
 
 for i in range( num ):
     x,y = X[ i ]
@@ -167,7 +184,7 @@ def _canvCB( e ):
         k = int( val )
         print X_h[ k ], hasher.bucket2center( X_h[ k ])
 
-        
+hasher.pair( X, X_h, Z, Z_h, 0.5 )
 canvas.bind( "<Button-1>", _canvCB )
 mainloop()
 # 4 neighbors = N + 1, N - 1; N-16, N+16;
