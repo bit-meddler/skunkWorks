@@ -46,6 +46,25 @@ def parseRootCSV( file_fq ):
 def makeLoc( pos, name ):
     return mc.spaceLocator( p=pos, n=name )
     
+def mkShader( sname, matCol, specCol, ref=.5 ):
+    # Make shader & Group
+    shader = mc.shadingNode( "blinn", asShader=True )
+    sg = mc.sets( renderable=True, noSurfaceShader=True, empty=True, name=sname )
+    mc.connectAttr( '{}.outColor'.format( shader ),
+                    '{}.surfaceShader'.format( sg ) )
+    # setup material
+    mc.setAttr( "{}.color".format( shader ),
+                matCol[0], matCol[1], matCol[2], "double3" )
+    mc.setAttr( "{}.specularColor".format( shader ),
+                specCol[0], specCol[1], specCol[2], "double3" )
+    mc.setAttr( "{}.reflectivity".format( shader ), ref )
+    return sg
+
+# make shaders
+mkShader( "red", (0.4709, 0.0184, 0.0184), (1, 0.00599998, 0.0059999), ref=.905 )
+mkShader( "blue", (0.0351 0.0351 0.3581), (0.0, 0.0, 1.0), ref=.905 )
+
+
 for i in range( len(roots) ):
     pts = roots[ i ]
     makeCurve( pts, "{0}_{1}".format( name, i ) )
@@ -55,6 +74,9 @@ for i in range( len(roots) ):
     normal = mc.pointOnCurve(curr_curve, nt=True )
     curr_circle = mc.circle( c=pos, nr=normal, r=2 )[0]
     shape = mc.extrude( curr_circle, curr_curve, et=2, sc=taper_val, n="SFS_{}_{}".format( name, i ) )
+
+    shader = "red" # "blue"
+    mc.sets( fe=shader, e=True )
 
 """
     fh.write( program )
