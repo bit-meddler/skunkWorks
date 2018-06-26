@@ -9,7 +9,8 @@ SWZ = np.array( [ [ 100.0,  0.0,    0.0 ],
                   [   0.0, -1.0,    0.0 ] ], dtype=np.float )
 
 def parseRootCSV( file_fq ):
-    name, _ = file_fq.split( "." )
+    file_name, _ = file_fq.split( "." )
+    name = file_name[4:]
     fh = open( file_fq, "r" )
     line = fh.readline() # header
     points = []
@@ -27,7 +28,7 @@ def parseRootCSV( file_fq ):
     conv = np.dot( pts, SWZ )
 
     
-    fh = open( name+".py", "wb" )
+    fh = open( file_name+".py", "wb" )
     fh.write( "roots = {}\n" )
     for i, (s_in, s_out) in enumerate( zip( point_splits[:-1], point_splits[1:] ) ):
         out = "{0}_{1} = [ ".format( name, i )
@@ -40,7 +41,10 @@ def parseRootCSV( file_fq ):
     out = "name = '{}'\n".format( name )
     fh.write( out )
     
-    program = """def makeCurve( pts, name ):
+    program = """
+import maya.cmds as mc
+
+def makeCurve( pts, name ):
     return mc.curve( d=1, p=pts, n=name )
     
 def makeLoc( pos, name ):
@@ -60,11 +64,15 @@ def mkShader( sname, matCol, specCol, ref=.5 ):
     mc.setAttr( "{}.reflectivity".format( shader ), ref )
     return sg
 
+
 # make shaders
 mkShader( "red", (0.4709, 0.0184, 0.0184), (1, 0.00599998, 0.0059999), ref=.905 )
-mkShader( "blue", (0.0351 0.0351 0.3581), (0.0, 0.0, 1.0), ref=.905 )
+mkShader( "blue", (0.0351, 0.0351, 0.3581), (0.0, 0.0, 1.0), ref=.905 )
 
+# settings
+taper_val = 0.35
 
+shapes = []
 for i in range( len(roots) ):
     pts = roots[ i ]
     makeCurve( pts, "{0}_{1}".format( name, i ) )
@@ -73,12 +81,20 @@ for i in range( len(roots) ):
     curr_curve = "{}_{}".format( name, i )
     normal = mc.pointOnCurve(curr_curve, nt=True )
     curr_circle = mc.circle( c=pos, nr=normal, r=2 )[0]
-    shape = mc.extrude( curr_circle, curr_curve, et=2, sc=taper_val, n="SFS_{}_{}".format( name, i ) )
+    shape = mc.extrude( curr_circle, curr_curve, et=2, sc=taper_val, p=pos, n="SFS_{}_{}".format( name, i ) )[0]
 
-    shader = "red" # "blue"
+    # Attach Shader
+    shader = "red" if name=="Maple" else "blue"
     mc.sets( fe=shader, e=True )
 
+    # Cleanup
+    mc.delete( (curr_circle, curr_curve) )
+    shapes.append( shape )
+    
+# Group
 """
+    program += "mc.group( *shapes, n='{}', w=True )\n".format( file_name )
+    
     fh.write( program )
     fh.close()
 
