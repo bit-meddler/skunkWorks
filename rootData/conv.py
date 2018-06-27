@@ -68,6 +68,9 @@ def mkShader( sname, matCol, specCol, ref=.5 ):
 # make shaders
 mkShader( "red", (0.4709, 0.0184, 0.0184), (1, 0.00599998, 0.0059999), ref=.905 )
 mkShader( "blue", (0.0351, 0.0351, 0.3581), (0.0, 0.0, 1.0), ref=.905 )
+mkShader( "white", (0.6, 0.6, 0.6), (1, 1.0, 1.0), ref=.905 )
+mkShader( "yellow", (0.784, 0.784, 0.045472), (1.0, 1.0, 0.666), ref=.905 )
+
 
 # settings
 taper_val = 0.35
