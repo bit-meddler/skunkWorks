@@ -41,13 +41,18 @@ def buildXcode( path_fq, out_name, mode="default", type="single" ):
 
 # build task list
 tasks = []
+
+# housekeeping
+tasks.append( "ECHO OFF\n" )
+tasks.append( "ECHO started %time% > digest.txt\n" )
+tasks.append( "MKDIR {}\n".format( TARGET_PATH ) )
+
 dirs = glob( os.path.join( RUSHES_PATH, "*", "" ) )
 for clip in dirs:
     frags = glob( clip + "*.mxf" )
     clip_name = os.path.basename( os.path.dirname( clip ) )
     num_clips = len( frags )
-    print clip_name, num_clips
-    tasks.append( 'ECHO Processing "{}"\n'.format( clip_name ) )
+    tasks.append( 'ECHO Processing "{}" with {} parts\n'.format( clip_name, num_clips ) )
     if( num_clips > 1 ): # concat operation
         # build file list
         fh = open( os.path.join( clip, "filelist.txt" ), "w" )
@@ -61,14 +66,15 @@ for clip in dirs:
     else:
         # register task (xcode)
         tasks.append( buildXcode( frags[0], clip_name, mode="xf100" ) )
-        
+
+# tidy up
+tasks.append( "ECHO ended %time% > digest.txt\n" )
+tasks.append( "TYPE digest.txt\n" )
+tasks.append( "PAUSE" )
+tasks.append( "DEL transcode.bat\n" )
+
 # finally output as batch file
 fh = open( os.path.join( RUSHES_PATH, "transcode.bat" ), "w" )
-fh.write( "ECHO OFF\n" )
-fh.write( "ECHO started %time% > digest.txt\n" )
-fh.write( "MKDIR {}\n".format( TARGET_PATH ) )
 for task in tasks:
     fh.write( task )
-fh.write( "DEL transcode.bat\n" )
-fh.write( "ECHO ended %time% > digest.txt\n" )
 fh.close()
