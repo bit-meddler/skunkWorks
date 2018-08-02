@@ -12,8 +12,8 @@ TARGET_PATH = os.path.join( RUSHES_PATH, "xcodes" )
 PRESETS = {
     "xf100" : {
         "AUDIO_MIX"   : '-filter_complex "[0:a:0][0:a:1]amerge"',
-        "VIDEO_CODEC" : '-c:v libx264 -preset faster -crf 27',
-        "AUDIO_CODEC" : '-c:a aac -b:a 128',
+        "VIDEO_CODEC" : '-c:v libx264 -preset faster -crf 26',
+        "AUDIO_CODEC" : '-c:a aac -b:a 128k',
         "OUTPUT_WRAP" : "mp4",
     },
 
@@ -47,6 +47,7 @@ for clip in dirs:
     clip_name = os.path.basename( os.path.dirname( clip ) )
     num_clips = len( frags )
     print clip_name, num_clips
+    tasks.append( 'ECHO Processing "{}"\n'.format( clip_name ) )
     if( num_clips > 1 ): # concat operation
         # build file list
         fh = open( os.path.join( clip, "filelist.txt" ), "w" )
@@ -54,6 +55,7 @@ for clip in dirs:
             fh.write( "file '{}'\n".format( file ) )
         fh.close()
         # register task (xcode, cleanup)
+
         tasks.append( buildXcode( clip, clip_name, mode="xf100", type="concat" ) )
         tasks.append( 'DEL "{}filelist.txt"\n'.format( clip ) )
     else:
@@ -63,8 +65,10 @@ for clip in dirs:
 # finally output as batch file
 fh = open( os.path.join( RUSHES_PATH, "transcode.bat" ), "w" )
 fh.write( "ECHO OFF\n" )
+fh.write( "ECHO started %time% > digest.txt\n" )
 fh.write( "MKDIR {}\n".format( TARGET_PATH ) )
 for task in tasks:
     fh.write( task )
 fh.write( "DEL transcode.bat\n" )
+fh.write( "ECHO ended %time% > digest.txt\n" )
 fh.close()
