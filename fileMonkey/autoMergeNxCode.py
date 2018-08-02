@@ -6,16 +6,14 @@ from glob import glob
 # settings
 
 FFMPEG_PATH = r"C:\port\ffmpeg\bin\ffmpeg.exe"
-RUSHES_PATH = r"C:\temp\rushes"
+RUSHES_PATH = r"D:\rushes"
 TARGET_PATH = os.path.join( RUSHES_PATH, "xcodes" )
-
-MODE = "xf100"
 
 PRESETS = {
     "xf100" : {
         "AUDIO_MIX"   : '-filter_complex "[0:a:0][0:a:1]amerge"',
         "VIDEO_CODEC" : '-c:v libx264 -preset faster -crf 27',
-        "AUDIO_CODEC" : '-c:a libfdk_aac -b:a 128',
+        "AUDIO_CODEC" : '-c:a aac -b:a 128',
         "OUTPUT_WRAP" : "mp4",
     },
 
@@ -34,8 +32,8 @@ def buildXcode( path_fq, out_name, mode="default", type="single" ):
     if( type == "single" ):
         load_mode = '-i "{}"'.format( path_fq )
     elif( type == "concat" ):
-        load_mode = '-f concat -i "{}filelist.txt"'.format( path_fq )
-    return '"{}" {} {} {} {} "{}.{}"'.format(
+        load_mode = '-f concat -safe 0 -i "{}filelist.txt"'.format( path_fq )
+    return '"{}" {} {} {} {} "{}.{}"\n'.format(
         FFMPEG_PATH, load_mode,
         conf[ "AUDIO_MIX" ], conf[ "VIDEO_CODEC" ], conf[ "AUDIO_CODEC" ],
         os.path.join( TARGET_PATH, out_name ), conf[ "OUTPUT_WRAP" ]
@@ -56,12 +54,17 @@ for clip in dirs:
             fh.write( "file '{}'\n".format( file ) )
         fh.close()
         # register task (xcode, cleanup)
-        tasks.append( buildXcode( clip, clip_name, type="concat" ) )
-        tasks.append( 'DEL "{}filelist.txt"'.format( clip ) )
+        tasks.append( buildXcode( clip, clip_name, mode="xf100", type="concat" ) )
+        tasks.append( 'DEL "{}filelist.txt"\n'.format( clip ) )
     else:
         # register task (xcode)
-        tasks.append( buildXcode( frags[0], clip_name ) )
+        tasks.append( buildXcode( frags[0], clip_name, mode="xf100" ) )
         
 # finally output as batch file
+fh = open( os.path.join( RUSHES_PATH, "transcode.bat" ), "w" )
+fh.write( "ECHO OFF\n" )
+fh.write( "MKDIR {}\n".format( TARGET_PATH ) )
 for task in tasks:
-    print task
+    fh.write( task )
+fh.write( "DEL transcode.bat\n" )
+fh.close()
