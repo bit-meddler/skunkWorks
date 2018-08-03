@@ -68,9 +68,9 @@ for clip in dirs:
         tasks.append( buildXcode( frags[0], clip_name, mode="xf100" ) )
 
 # tidy up
-tasks.append( "ECHO ended %time% > digest.txt\n" )
+tasks.append( "ECHO ended %time% >> digest.txt\n" )
 tasks.append( "TYPE digest.txt\n" )
-tasks.append( "PAUSE" )
+tasks.append( "PAUSE\n" )
 tasks.append( "DEL transcode.bat\n" )
 
 # finally output as batch file
