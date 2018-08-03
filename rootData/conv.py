@@ -6,7 +6,7 @@ import numpy as np
 
 SWZ = np.array( [ [ 100.0,    0.0,    0.0 ],
                   [   0.0,    0.0,  100.0 ],
-                  [   0.0, -100.0,    0.0 ] ], dtype=np.float )
+                  [   0.0,   -1.0,    0.0 ] ], dtype=np.float )
 
 
 def parseRootCSV( file_fq ):
