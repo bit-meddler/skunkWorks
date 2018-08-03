@@ -4,9 +4,9 @@
 
 import numpy as np
 
-SWZ = np.array( [ [ 100.0,  0.0,    0.0 ],
-                  [   0.0,  0.0,  100.0 ],
-                  [   0.0, -1.0,    0.0 ] ], dtype=np.float )
+SWZ = np.array( [ [ 100.0,    0.0,    0.0 ],
+                  [   0.0,    0.0,  100.0 ],
+                  [   0.0, -100.0,    0.0 ] ], dtype=np.float )
 
 
 def parseRootCSV( file_fq ):
@@ -28,7 +28,7 @@ def parseRootCSV( file_fq ):
     pts = np.array( points, dtype=np.float )
     conv = np.dot( pts, SWZ )
 
-    return conv, point_splits
+    return name, (conv, point_splits)
 
 
 def generateMayaScript( tree_dict ):
@@ -36,20 +36,20 @@ def generateMayaScript( tree_dict ):
     for name, (points, point_splits) in tree_dict.iteritems():
         ret += "root_dict[ '{}' ] = []\n".format( name )
         for i, (s_in, s_out) in enumerate( zip( point_splits[:-1], point_splits[1:] ) ):
-            ret += "root_dict[ '{}' ].append( [".format( name ) )
-            for point in conv[s_in:s_out]:
-                out += "[ {}, {}, {} ], ".format( point[0], point[1], point[2] )
-            out += " ] )\n"
+            ret += "root_dict[ '{}' ].append( [".format( name )
+            for point in points[s_in:s_out]:
+                ret += "[ {}, {}, {} ], ".format( point[0], point[1], point[2] )
+            ret += " ] )\n"
             
     return ret
 
     
-def outputFile( tree_dict, out_file ):
+def outputFile( tree_dict, out_file, do_sweeps=True ):
     preamble = """# Convert root survey data to maya representation
 import maya.cmds as mc
 
-"""
-    
+
+"""    
     root_data = generateMayaScript( tree_dict )
     
     program = """
@@ -84,7 +84,7 @@ def extrudeAllongCurve( curr_curve, name, rad=2, taper=1, shader=None ):
     
     mc.delete( curr_circle )
 
-    if( shader not None ):
+    if( shader is not None ):
         mc.sets( fe=shader, e=True )
     return shape
     
@@ -96,28 +96,31 @@ mkShader( "yellow", (0.784, 0.784, 0.045472), (1.0, 1.0, 0.666), ref=.905 )
 
 
 # settings
-taper_val = 0.35
+taper_val = 0.31
+radius = 2.2
 
 # do both root systems
-for name, roots in root_dict:
+for name, roots in root_dict.iteritems():
     shapes = []
     root_shader = "red" if name=="Maple" else "blue"
     for i in range( len( roots ) ):
         pts = roots[ i ]
-        curr_curve = makeCurve( pts, "{0}_{1}".format( name, i ) )[0]
-        shape = extrudeAllongCurve( curr_curve, "NRB_{}_root_{}".format(name, i), rad=2, taper=taper_val, shader=root_shader )
-        mc.delete( curr_curv) )
+        curr_curve = makeCurve( pts, "{0}_{1}".format( name, i ) )
+        shape = extrudeAllongCurve( curr_curve, "NRB_{}_root_{}".format(name, i), rad=radius, taper=taper_val, shader=root_shader )
+        mc.delete( curr_curve )
         shapes.append( shape )
     
     # Group
     mc.group( *shapes, n="{}_roots".format( name ), w=True )
+    
 """
 
     survey = """# place helper locators (currently a fudge)
 mc.spaceLocator( p=(0., 0., 0.), n="LOC_Maple" )
 mc.spaceLocator( p=(-500., 500., 0.), n="LOC_Ash" )
 
-# Generate sweeps
+"""
+    sweeps = """# Generate sweeps
 
 # Maple
 shapes = []
@@ -126,7 +129,7 @@ for i in range( 1, 21 ):
     rad = 50 + (30*i)
     curr_curve = mc.circle( c=pos, nr=(0.,1.,0.), r=rad, sw=180.0, s=24)[0]
     shape = extrudeAllongCurve( curr_curve, "NRB_{}_sweep_{}".format(name, i), rad=2, shader="yellow" )
-    mc.delete( curr_curv) )
+    mc.delete( curr_curv )
     shapes.append( shape )
     # keyframe
     mc.setKeyframe( shape, v=0, at='visibility', t=1 )
@@ -141,7 +144,7 @@ for i in range( 1, 6 ):
     rad = 50 + (30*i)
     curr_curve = mc.circle( c=pos, nr=(0.,1.,0.), r=rad, sw=180.0, s=24)[0]
     shape = extrudeAllongCurve( curr_curve, "NRB_{}_sweep_{}".format(name, i), rad=2, shader="white" )
-    mc.delete( curr_curv) )
+    mc.delete( curr_curv )
     shapes.append( shape )
     # keyframe
     mc.setKeyframe( shape, v=0, at='visibility', t=1 )
@@ -157,9 +160,15 @@ mc.group( *shapes, n='Ash_sweeps', w=True )
     fh.write( root_data )
     fh.write( program   )
     fh.write( survey    )
+    if( do_sweeps ):
+        fh.write( sweeps )
     fh.close()
+
     
-
-for file in ["rootAsh.txt", "rootMaple.txt"]:
-    parseRootCSV( file )
-
+if( __name__ == "__main__" ):
+    d = {}
+    for file in ["rootAsh.txt", "rootMaple.txt"]:
+        name, data = parseRootCSV( file )
+        d[ name ] = data
+        
+outputFile( d, "generateRoots", do_sweeps=False )
