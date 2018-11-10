@@ -1,6 +1,6 @@
 import logging
 logger = logging.getLogger( "" )
-formatter = logging.Formatter( "%(asctime)s.%(msecs)04d [%(levelname)-8s] (%(name)s): %(message)s {%(filename)s@%(lineno)s}", "%y%m%d %H:%M:%S" )
+formatter = logging.Formatter( "%(asctime)s.%(msecs)04d [%(levelname)-8s][%(name)-16s] %(message)s\n{%(filename)s@%(lineno)s}", "%y%m%d %H:%M:%S" )
 
 
 import exLib
