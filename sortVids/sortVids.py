@@ -27,8 +27,8 @@ FIRST_HI = -1
 
 TRANS_TABLE = maketrans( ENCIRCLERS, (' ' * len( ENCIRCLERS ) ) )
 
-def smartSplit( str ):
-    counts = Counter( str )
+def smartSplit( text ):
+    counts = Counter( text )
     win_c, delim = -1, "X"
     for d in DELIMITERS:
         count = counts[d]
@@ -36,11 +36,11 @@ def smartSplit( str ):
             win_c, delim = count, d
     if win_c<1:
         print "Ambigious delimiter"
-        print str
-        str = translate( str, TRANS_TABLE )
+        print text
+        text = translate( text, TRANS_TABLE )
         delim = " "
         
-    toks = str.split( delim )
+    toks = text.split( delim )
     if len(toks)<2:
         print "Bad Split"
         return
@@ -51,21 +51,28 @@ def smartSplit( str ):
         ret.extend( res )
     return ret
     
-def dir2task( filenames ):
+def dir2task( filenames, do_split=True ):
     tasks = {}
     last_task = None
     last_task_name = None
+    print len( filenames )
 
     for name in filenames:
-        fname, ex = os.path.splitext(name)
-        if ex==".srt":
-            score = SequenceMatcher( None, last_task, fname ).ratio()
-            if score>0.75:
-                tasks[last_task_name]["subs"] = name
-                continue
-        elif( ex==".db" or ex==".bat" or ex==".txt" ):
-                continue
-            
+        if do_split:
+            fname, ex = os.path.splitext(name)
+            print fname, ex
+            if ex==".srt":
+                if last_task==None:
+                    continue
+                score = SequenceMatcher( None, last_task, fname ).ratio()
+                if score>0.75:
+                    tasks[last_task_name]["subs"] = name
+                    continue
+            elif( ex==".db" or ex==".bat" or ex==".txt" or ex=="sh" ):
+                    continue
+        else:
+            fname = name
+
         tasks[name] = {}
         toks = smartSplit( fname )
 
@@ -139,34 +146,80 @@ def getFiles( root_path ):
     for root, dirs, files in os.walk( root_path ):
         for file in files:
             try:
-                if type( file ) == str:
+                if type( file ) == text:
                     norm = file
                 else:
                     norm = unicodedata.normalize( "NFKD", file )
-                res.append( norm.encode( 'ascii', 'replace' ) )
+                res.append( norm.encode( "ascii", "replace" ) )
             except:
                 print file, type( file )
         return res
 
+def getDirs( root_path ):
+    # dirs
+    import unicodedata
+    res = []
+    for root, dirs, files in os.walk( root_path ):
+        for d in dirs:
+            res.append( d )
+    return res
+
+def archCmd( arch, cmd, remark=None, source=None, target=None ):
+    ret = ""
+    if cmd=="coment":
+        if arch=="win":
+            ret = "REM *** {} ***\n".format( remark )
+        elif arch=="nix":
+            ret = "# *** {} ***\n".format( remark )
+    elif  cmd=="mkdir":
+        if arch=="win":
+            ret = 'MKDIR "{}"\n'.format( target )
+        elif arch=="nix":
+            ret = 'mkdir -p "{}"\n'.format( target )
+    elif  cmd=="move":
+        if arch=="win":
+            ret = 'MOVE "{}" "{}"\n'.format( source, target )
+        elif arch=="nix":
+            ret = 'mv "{}" "{}"\n'.format( source, target )
+    return ret
+
+def tasks2script( tasks, path, arch="win", d_mode=False ):
+    # 
+    ex = "bat" if arch=="win" else "sh"
+    out_file_path = os.path.join( path, "mover."+ex )
+    fh = open( out_file_path, "w" )
+
+    for old, task in tasks.iteritems():
+        if task['OK']:
+            year = ""
+            new = task['new']
+            if not task['hasyear']:
+                fh.write( archCmd( arch, "coment",
+                    remark="https://www.google.co.uk/search?q=imdb+{}".format(
+                        new.replace(" ", "+") )
+                    )
+                )
+                new += " ()"
+            if not d_mode:
+                fh.write( archCmd( arch, "mkdir", target=new ) )
+            if old==new:
+                continue
+            fh.write( archCmd( arch, "move", source=old, target=new ) )
+            if "subs" in task:
+                fh.write( archCmd( arch, "move", source=task['subs'], target=new ) )
+        else:
+            print "No instructions for '{}'".format( old )
+    fh.close()  
+
 # begin
 base_path = "G:\\"
-file_list = getFiles( base_path )
-tasks = dir2task( file_list )
-out_file_path = os.path.join( base_path, "mover.bat" )
-fh = open( out_file_path, "w" )
-for t in tasks.keys():
-    task = tasks[t]
-    if task['OK']:
-        year = ""
-        new = task['new']
-        if not task['hasyear']:
-            fh.write( "REM *** https://www.google.co.uk/search?q=imdb+{} ***\n".format( new.replace(" ", "+") ) )
-            new += " ()"
-        fh.write( 'MKDIR "{}"\n'.format( new ) )
-        fh.write( 'MOVE "{}" "{}"\n'.format( t, new ) )
-        if "subs" in task:
-            fh.write( 'MOVE "{}" "{}"\n'.format( task['subs'], new ) )
-    else:
-        print "No instructions for '{}'".format( t )
-fh.close()           
+base_path = "/mnt/z_vids/film"
+arch = "nix"
+
+#file_list = getFiles( base_path )
+#tasks = dir2task( file_list )
+d_list = getDirs( base_path )
+tasks = dir2task( d_list, False )
+
+tasks2script( tasks, base_path, arch, True )
 #dic2JSON( tasks, os.path.join( base_path, "films.json" ) )
