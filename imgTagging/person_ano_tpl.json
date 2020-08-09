@@ -1,0 +1,121 @@
+{
+  "_ROOT_": "Person",
+  "Person": [
+    "Head",
+    "ArmR",
+    "HandR",
+    "ArmL",
+    "HandL",
+    "Chest",
+    "Hips",
+    "LegR",
+    "FootR",
+    "LegL",
+    "FootL"
+  ],
+  "Head": [
+    "Face",
+    "Hair",
+    "Hat"
+  ],
+  "Arm": [],
+  "Hand": [
+    "Watch",
+    "Gloves"
+  ],
+  "Chest": [],
+  "Hips": [
+    "Belt"
+  ],
+  "Leg": [],
+  "Foot": [
+    "Socks",
+    "Shoes"
+  ],
+  "_TAGS_": {
+    "Person": {
+      "Clothing": {
+        "Business": {
+          "Suit": null,
+          "Uniform": null,
+          "Dress": null
+        },
+        "Casual": {
+          "T-Shirt": null,
+          "Chinos": null,
+          "Skirt": null,
+          "Athleasure": null,
+          "VestTop": null
+        }
+      },
+      "#attributes": {
+        "Not-a-Robot": null,
+        "Woman": null,
+        "Man": null
+      }
+    },
+    "Face": {
+      "Glasses": null,
+      "Makeup": {
+        "Lipstick": null,
+        "Eye-Makeup": null
+      }
+    },
+    "Hair": {
+      "#Colour": {
+        "Red": null,
+        "Brown": null,
+        "Blond": null,
+        "Black": null,
+        "Dyed": {
+          "Red": null,
+          "Blue": null,
+          "Purple": null
+        },
+        "Greying": null
+      },
+      "Wet": null,
+      "Wig": null,
+      "Bald": null
+    },
+    "Hat": {
+      "Fedora": null,
+      "Bowler": null,
+      "Baseball Cap": null
+    },
+    "Watch": {
+      "#Brand": {
+        "Swatch": null,
+        "Casio": null,
+        "Omega": null
+      },
+      "Mechanical": null,
+      "Analouge": null
+    },
+    "Gloves": {
+      "Regular": null,
+      "Fagin": null,
+      "Material": {
+        "Wool": null,
+        "Fabric": null,
+        "Leather": null
+      }
+    },
+    "Belt": {
+      "Leather": null,
+      "Canvas": null
+    },
+    "Socks": {
+      "Comedy": null,
+      "Dark": null,
+      "Stripey": null
+    },
+    "Shoes": {
+      "Trainers": null,
+      "Boots": null,
+      "Converse": null,
+      "Heels": null,
+      "Dress": null
+    }
+  }
+}
