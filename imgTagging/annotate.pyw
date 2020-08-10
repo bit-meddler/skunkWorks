@@ -11,7 +11,7 @@ import random
 import sys
 from threading import Lock, Thread
 from time import sleep
-
+import uuid
 
 # mouse
 RMB = QtCore.Qt.RightButton
@@ -426,10 +426,14 @@ class CacheMan( Thread ):
     def __init__( self, img_table ):
         super( CacheMan, self ).__init__()
         self.deamon = True
+        self.running = True
         self.table = img_table
 
+    def halt( self ):
+        self.running = False
+
     def run( self ):
-        while( True ):
+        while( self.running ):
             for i, task in enumerate( list( self.table._cache_stat ) ):
                 if( task == "drop" ):
                     self.table._lock_stat.acquire()
@@ -447,7 +451,7 @@ class CacheMan( Thread ):
                     self.table._lock_stat.release()
                     load = self.table.item( i, 1 )
                     load.setIcon( self.table._icon_YES )
-            sleep( 5 )
+            sleep( 3 )
 
 
 class ImageTable( QtWidgets.QTableWidget ):
@@ -498,7 +502,11 @@ class ImageTable( QtWidgets.QTableWidget ):
         return icon == self._icon_OK.cacheKey()
 
     def selectionChanged( self, new, old ):
-        row = new.indexes()[0].row()
+        indexs = new.indexes()
+        if( len( indexs ) < 1 ):
+            return
+
+        row = indexs[ 0 ].row()
         self._img_idx = row
         if( self._cache_stat[ row ] != "yes" ): # cache miss
             self._lock_stat.acquire()
@@ -550,8 +558,8 @@ class ImageTable( QtWidgets.QTableWidget ):
         self._cache_stat = []
 
         have_anos = set( ano_list )
-
-        self.setRowCount( len( img_list ) )
+        num_imgs = len( img_list )
+        self.setRowCount( num_imgs )
         for i, file_fq in enumerate( img_list ):
 
             name, ext = os.path.basename( file_fq ).split(".",1)
@@ -578,7 +586,7 @@ class ImageTable( QtWidgets.QTableWidget ):
 
         self._lock_stat.release()
         self.marshelCache()
-
+        self._main._setLog( "loaded {} Images".format( num_imgs ) )
 
 class AnoTree( QtWidgets.QTreeWidget ):
 
@@ -778,14 +786,17 @@ class AnoTree( QtWidgets.QTreeWidget ):
 class QtAnnotator( QtWidgets.QMainWindow ):
 
     RECT_SCALE_FACTOR = 110
+    DEFAULT_CFG_PATH = r"C:\temp"
+    DEFAULT_TGT_PATH = r"C:\temp\sort"
+    DEFAULT_IMG_PATH = r"C:\temp\testImgs"
+    DEFUALT_DEL_PATH = r"C:\temp\demoted"
 
     def __init__( self, parent ):
         super( QtAnnotator, self ).__init__()
         self._parent = parent
 
         # variables
-        self._default_img_path = r"C:\temp\testImgs"
-        self._default_cfg_path = r"C:\temp"
+
 
         self.templates = {}
 
@@ -799,13 +810,14 @@ class QtAnnotator( QtWidgets.QMainWindow ):
 
         # load inital data
         self._loadTemplates()
-        self.cur_template = "person" # TODO: cfg file
+        #self.cur_template = "person" # TODO: cfg file
 
         # Build interface
         self.scene = QtWidgets.QGraphicsScene()
         self.view_pane = Viewer( scene=self.scene, main=self )
         self.anos = AnoTree( main=self )
-        
+        self._tabl_imgs = ImageTable( parent=parent, main=self )
+
         self._SHORTCUT_MAP = {
             QtCore.Qt.Key_F         : self.view_pane._fit2Scene,
             QtCore.Qt.Key_W         : self.anos._skip2Next,
@@ -816,13 +828,17 @@ class QtAnnotator( QtWidgets.QMainWindow ):
             short_cut = QtWidgets.QShortcut( QtGui.QKeySequence( key ), self )
             short_cut.activated.connect( action )
             
-        self.traitMenus = {}
-        self._buildMenus()
-
+        self.traitMenus = [ {}, {}, {} ]
+        self._combos = [ None, None, None ]
+        self.cur_preset = 0
+        self.cur_template = ""
         self.cur_reg = None
 
         self._rect_sz = 150
 
+        # Finaly setup the UI
+        # Kill thread on exit
+        parent.aboutToQuit.connect( self._tabl_imgs._cache_man.halt )
         self._buildUI()
 
     def _clearActivations( self ):
@@ -830,10 +846,11 @@ class QtAnnotator( QtWidgets.QMainWindow ):
             r.activated = False
 
     def delLastReg( self ):
-        old_reg = self.regions.pop()
-        self.scene.removeItem( old_reg )
-        # Clear previous entry in tree
-        self.anos.delPrevious()
+        if( len( self.regions ) > 0 ):
+            old_reg = self.regions.pop()
+            self.scene.removeItem( old_reg )
+            # Clear previous entry in tree
+            self.anos.delPrevious()
 
     def createRegion( self, pos, rect=None, anno_item=None ):
         # publish the last? one
@@ -874,21 +891,21 @@ class QtAnnotator( QtWidgets.QMainWindow ):
             self.anos.primeNext()
         elif( self.mode == "tags"):
             self.cur_reg = region
-            if( reg_name in self.traitMenus ):
+            if( reg_name in self.traitMenus[ self.cur_preset ] ):
                 self._line_hint.setText( "Tagging {}".format( reg_name ) )
-                self.traitMenus[ reg_name ].exec_( pos )
+                self.traitMenus[ self.cur_preset ][ reg_name ].exec_( pos )
 
             for trait in region.traits:
                 self._line_hint.setText( "Tagging {}".format( trait ) )
                 try:
-                    self.traitMenus[ trait ].exec_( pos )
+                    self.traitMenus[ self.cur_preset ][ trait ].exec_( pos )
                 except KeyError:
                     # Tag region with this trait
                     self.cur_reg.tags.add( trait )
                     self._addTag( trait )
 
     def _loadTemplates( self ):
-        templates = glob( os.path.join( self._default_cfg_path, "*_ano_tpl.json" ) )
+        templates = glob( os.path.join( self.DEFAULT_CFG_PATH, "*_ano_tpl.json" ) )
         for template in templates:
             name = os.path.basename( template )
             name, _ = name.split(".",1)
@@ -900,15 +917,6 @@ class QtAnnotator( QtWidgets.QMainWindow ):
         self.view_pane._fit2Scene()
         super( QtAnnotator, self ).resizeEvent( event )
 
-    def keyPressEvent( self, event ):
-        key = event.key()
-        if( key in self._SHORTCUT_MAP ):
-            self._SHORTCUT_MAP[ key ]()
-        super( QtAnnotator, self ).keyPressEvent( event )
-        
-    def mousePressEvent(self, event):
-        super( QtAnnotator, self ).mousePressEvent( event )
-        
     # Call Backs     ///////////////////////////////////////////////////////////
     def _changeImageCB( self, img_idx ):
         # clear GFX scene, preserving the PixMap
@@ -958,17 +966,31 @@ class QtAnnotator( QtWidgets.QMainWindow ):
             anno_dict = json.load( fh )
             self.anos.loadDict( anno_dict )
 
-    def _comboChangeCB( self ):
-        self.cur_template = str( self._comb_tpts.currentText() )
-        self._buildMenus()
+    def _comboChangeCB( self, preset, index):
+        self._buildMenus( preset )
 
     # Button Actions ///////////////////////////////////////////////////////////
     def _doPath( self ):
         # get the img path
-        pass
-        
-    def _doPerson( self ):
+        curr = self._line_path.text()
+        path = str( QtWidgets.QFileDialog.getExistingDirectory( self, caption="Select Image Directory", dir=curr ) )
+        if( path ):
+            self._line_path.setText( path )
+            self._populateImgs()
+
+    def _doPathTgt( self ):
+        # get the img path
+        curr = self._line_expo.text()
+        path = str( QtWidgets.QFileDialog.getExistingDirectory( self, caption="Select Migration Directory", dir=curr ) )
+        if (path):
+            self._line_expo.setText( path )
+
+    def _doCreate( self, preset ):
+        template = self._combos[ preset ].currentText()
+        self.cur_preset = preset
+        self.cur_template = template
         self.anos.newFromTemplate( self.templates[ self.cur_template ] )
+        self.reg_mode.setChecked( True )
 
     def _doSkipReg( self ):
         self.anos.skipPending()
@@ -1020,18 +1042,63 @@ class QtAnnotator( QtWidgets.QMainWindow ):
 
         imgs_path = str( self._line_path.text() )
         name = self._tabl_imgs._row_lut[ self.img_idx ]
+        orig_file_fq = os.path.join( imgs_path, name + ".jpg" )
+
         # Add extra metadaata
         img = self.view_pane.cur_img.pixmap()
         regions["__ALL_TAGS__"] = list( all_tags )
         regions["__IMG_META__"] = {
             "ORIG_NAME"  : name,
             "DIMENSIONS" : [img.width(), img.height()],
+            "SIZE"       : os.stat( orig_file_fq ).st_size
         }
         file_fq = os.path.join( imgs_path, name + ".ano")
         out = json.dumps( regions, indent=4 )
         with open( file_fq, "w" ) as fh:
             fh.write( out )
         self._tabl_imgs.item( self.img_idx, 0 ).setIcon( self._tabl_imgs._icon_OK )
+
+    def _doMigrate( self ):
+        src_folder = str( self._line_path.text() )
+        tgt_folder = str( self._line_expo.text() )
+
+        search = os.path.join( src_folder, "*.ano" )
+        anos = glob( search )
+        for src_ano in anos:
+            name = os.path.basename( src_ano )
+            name, _ = name.rsplit( ".", 1 )
+
+            d = { }
+            with open( src_ano, "r" ) as fh:
+                d = json.load( fh )
+
+            if (not "__IMG_META__" in d):
+                d[ "__IMG_META__" ] = { "ORIG_NAME": name }
+
+            if ("UUID" in d[ "__IMG_META__" ]):
+                # allready renamed
+                continue
+
+            new_name = str( uuid.uuid4() )
+
+            d[ "__IMG_META__" ][ "UUID" ] = new_name
+
+            with open( src_ano, "w" ) as fh:
+                fh.write( json.dumps( d, indent=4 ) )
+
+            src_img = os.path.join( src_folder, name + ".jpg" )
+            if (not os.path.isfile( src_img )):
+                continue
+
+            tgt_img = os.path.join( tgt_folder, new_name + ".jpg" )
+            tgt_ano = os.path.join( tgt_folder, new_name + ".ano" )
+
+            os.rename( src_ano, tgt_ano )
+            os.rename( src_img, tgt_img )
+
+            print("Moved {}".format( name ))
+        # reset IMG table
+        self._populateImgs()
 
     # UI Updates ///////////////////////////////////////////////////////////////
     def _showImg( self, idx ):
@@ -1082,6 +1149,7 @@ class QtAnnotator( QtWidgets.QMainWindow ):
         self._tabl_imgs.populate( img_list, anos )
 
         # reset pointer?
+        self._tabl_imgs.setFocus()
         self._tabl_imgs.selectRow( 0 )
 
     def _uniTagAction( self, source ):
@@ -1118,13 +1186,14 @@ class QtAnnotator( QtWidgets.QMainWindow ):
                 tma.setData( path )
                 self._submenu( t_menu, v )
 
-    def _buildMenus( self ):
-        self.tag_dict = self.templates[ self.cur_template ]["_TAGS_"]
-        del( self.traitMenus )
-        self.traitMenus = {}
+    def _buildMenus( self, preset ):
+        to_build = str( self._combos[ preset ].currentText() )
+        self.tag_dict = self.templates[ to_build ]["_TAGS_"]
+        self.traitMenus[ preset ].clear()
+        self.traitMenus[ preset ] = {}
         for trait in  self.tag_dict.keys():
             t_menu = QtWidgets.QMenu( self )
-            self.traitMenus[ trait ] = t_menu
+            self.traitMenus[ preset ][ trait ] = t_menu
             t_menu.menuAction().setData( trait )
             self._submenu( t_menu,  self.tag_dict[ trait ] )
 
@@ -1140,17 +1209,14 @@ class QtAnnotator( QtWidgets.QMainWindow ):
         layt_imgs = QtWidgets.QGridLayout()
 
         # Image Path
-        anon = QtWidgets.QLabel( "Pick Image Folder" )
-        layt_imgs.addWidget( anon, 0, 0, 1, 1 )
+        self._butn_path = QtWidgets.QPushButton("Set image Path")
+        layt_imgs.addWidget( self._butn_path, 0, 0, 1, 1 )
 
-        self._butn_path = QtWidgets.QPushButton()
-        layt_imgs.addWidget( self._butn_path, 0, 1, 1, 1 )
-
-        self._line_path = QtWidgets.QLineEdit( self._default_img_path )
-        layt_imgs.addWidget( self._line_path, 1, 0, 1, 2 )
+        self._line_path = QtWidgets.QLineEdit( self.DEFAULT_IMG_PATH )
+        self._line_path.setSizePolicy( QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum )
+        layt_imgs.addWidget( self._line_path, 0, 1, 1, 1 )
 
         # List of Images to Annotate
-        self._tabl_imgs = ImageTable( parent=self._parent, main=self )
         self._tabl_imgs.setColumnCount( 2 )
         self._tabl_imgs.setHorizontalHeaderLabels( ["File", "Img"] )
         header = self._tabl_imgs.horizontalHeader()
@@ -1165,11 +1231,21 @@ class QtAnnotator( QtWidgets.QMainWindow ):
         font_text = QtGui.QFont( "Fixed", 10, QtGui.QFont.Normal )
         self._text_logs = QtWidgets.QTextEdit( self )
         self._text_logs.setReadOnly( True )
-        self._text_logs.setSizePolicy( QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum )
-        self._text_logs.setMaximumHeight( 120 )
+        self._text_logs.setSizePolicy( QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred )
+        self._text_logs.setMaximumHeight( 60 )
         self._text_logs.setFont( font_text )
         layt_imgs.addWidget( self._text_logs, 10, 0, 1, 2 )
         self._setLog( "" )
+
+        self._butn_expp = QtWidgets.QPushButton( "Set Migrate Path" )
+        layt_imgs.addWidget( self._butn_expp, 11, 0, 1, 1 )
+
+        self._line_expo = QtWidgets.QLineEdit( self.DEFAULT_TGT_PATH )
+        self._line_expo.setSizePolicy( QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum )
+        layt_imgs.addWidget( self._line_expo, 11, 1, 1, 1 )
+
+        self._butn_expo = QtWidgets.QPushButton( "Migrate" )
+        layt_imgs.addWidget( self._butn_expo, 12, 0, 1, 1 )
 
         # finish control panel
         wdgt_imgs.setLayout( layt_imgs )
@@ -1185,6 +1261,8 @@ class QtAnnotator( QtWidgets.QMainWindow ):
         self._line_hint.setAlignment( QtCore.Qt.AlignCenter )
         self._line_hint.setSizePolicy( QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum )
         layt_cent.addWidget( self._line_hint, 0, 1, 1, 1 )
+
+        self.view_pane.setSizePolicy( QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.MinimumExpanding )
         layt_cent.addWidget( self.view_pane, 1, 1, 1, 1 )
 
         # Tag Control Panel ----------------------------------------------------------------------- Tagging Controls ---
@@ -1192,17 +1270,60 @@ class QtAnnotator( QtWidgets.QMainWindow ):
         layt_tags = QtWidgets.QGridLayout()
 
         x, y = 0, 0
-        # buttons
-        self._butn_adpn = QtWidgets.QPushButton( "Add Person" )
-        layt_tags.addWidget( self._butn_adpn, y, x, 1, 1 )
+        layt_grp = QtWidgets.QGroupBox( "Quick Presets" )
+        layt_pres = QtWidgets.QGridLayout()
 
-        x += 1
-        self._comb_tpts = QtWidgets.QComboBox( self )
+        # prep presets
+        self._comb_aqa1 = QtWidgets.QComboBox( self )
+        self._comb_aqa2 = QtWidgets.QComboBox( self )
+        self._comb_aqa3 = QtWidgets.QComboBox( self )
+        self._combos = [ self._comb_aqa1, self._comb_aqa2, self._comb_aqa3 ]
+
+        # Preset 1
+        self._butn_aqa1 = QtWidgets.QPushButton( "(1) Add " )
+        self._butn_aqa1.setSizePolicy( QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum )
+        layt_pres.addWidget( self._butn_aqa1, 0, 0, 1, 1 )
+
+        self._comb_aqa1.currentIndexChanged.connect( partial( self._comboChangeCB, 0 ) )
+        self._comb_aqa1.setSizePolicy( QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum )
         for template in sorted( self.templates.keys() ):
-            self._comb_tpts.addItem( template )
-        self._comb_tpts.currentIndexChanged.connect( self._comboChangeCB )
-        layt_tags.addWidget( self._comb_tpts, y, x, 1, 1 )
+            self._comb_aqa1.addItem( template )
+        layt_pres.addWidget( self._comb_aqa1, 1, 0, 1, 1 )
 
+        # Preset 2
+        self._butn_aqa2 = QtWidgets.QPushButton( "(2) Add " )
+        self._butn_aqa2.setSizePolicy( QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum )
+        layt_pres.addWidget( self._butn_aqa2, 0, 1, 1, 1 )
+
+        self._comb_aqa2.currentIndexChanged.connect(  partial( self._comboChangeCB, 1 ) )
+        self._comb_aqa2.setSizePolicy( QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum )
+        for template in sorted( self.templates.keys() ):
+            self._comb_aqa2.addItem( template )
+        layt_pres.addWidget( self._comb_aqa2, 1, 1, 1, 1 )
+
+        # Preset 3
+        self._butn_aqa3 = QtWidgets.QPushButton( "(3) Add " )
+        self._butn_aqa3.setSizePolicy( QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum )
+        layt_pres.addWidget( self._butn_aqa3, 0, 2, 1, 1 )
+
+        self._comb_aqa3.currentIndexChanged.connect(  partial( self._comboChangeCB, 2 ) )
+        self._comb_aqa3.setSizePolicy( QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum )
+        for template in sorted( self.templates.keys() ):
+            self._comb_aqa3.addItem( template )
+        layt_pres.addWidget( self._comb_aqa3, 1, 2, 1, 1 )
+
+        # Attach CBs
+        self._butn_aqa1.clicked.connect( partial( self._doCreate, 0 ) )
+        self._butn_aqa2.clicked.connect( partial( self._doCreate, 1 ) )
+        self._butn_aqa3.clicked.connect( partial( self._doCreate, 2 ) )
+
+        QtWidgets.QShortcut( QtGui.QKeySequence(QtCore.Qt.Key_1), self._butn_aqa1, partial( self._doCreate, 0 ) )
+        QtWidgets.QShortcut( QtGui.QKeySequence(QtCore.Qt.Key_2), self._butn_aqa2, partial( self._doCreate, 1 ) )
+        QtWidgets.QShortcut( QtGui.QKeySequence(QtCore.Qt.Key_3), self._butn_aqa3, partial( self._doCreate, 2 ) )
+        # add to tag layout
+        layt_grp.setLayout( layt_pres )
+        layt_grp.setSizePolicy( QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Maximum )
+        layt_tags.addWidget( layt_grp, y, x, 1, 3 )
         y += 1; x = 0
 
         self._butn_save = QtWidgets.QPushButton( "Save" )
@@ -1262,8 +1383,9 @@ class QtAnnotator( QtWidgets.QMainWindow ):
 
         # attach CBs and events
         self._butn_path.clicked.connect( self._doPath )
-        self._butn_adpn.clicked.connect( self._doPerson )
         self._butn_save.clicked.connect( self._doExport )
+        self._butn_expp.clicked.connect( self._doPathTgt )
+        self._butn_expo.clicked.connect( self._doMigrate )
 
         # populate
         self._populateImgs()
