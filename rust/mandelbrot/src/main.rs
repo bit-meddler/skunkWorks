@@ -2,6 +2,7 @@
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 #![allow(unused_imports)]
+#![allow(unused_parens)]
 
 
 // - Externs
@@ -11,6 +12,8 @@ use num::Complex ;
 extern crate image ;
 use image::ColorType ;
 use image::png::PngEncoder ;
+
+extern crate crossbeam ;
 
 
 // - Imports
@@ -143,15 +146,41 @@ fn writeImg(
 	Ok(())
 }
 
+fn renderBrotThreads(
+	pixels: &mut[u8],
+	bounds: (usize, usize),
+	up_left: Complex<f64>,
+	lo_right: Complex<f64>)
+{
+	let threads = 6 ;
+	let rows_per_band = bounds.1 / (threads + 1) ;
+
+	let bands: Vec<&mut [u8]> = pixels.chunks_mut( rows_per_band * bounds.0 ).collect() ;
+
+	crossbeam::scope( |spawner| {
+		for (i, band ) in bands.into_iter().enumerate() {
+			let top = rows_per_band * i ;
+			let height = band.len() / bounds.0 ;
+			let band_bounds = (bounds.0, height) ;
+			let band_ul = pix2Point( bounds, (       0,            top), up_left, lo_right ) ;
+			let band_lr = pix2Point( bounds, (bounds.0, (top + height)), up_left, lo_right ) ;
+
+			spawner.spawn( move || {
+				renderBrot( band, band_bounds, band_ul, band_lr ) ;
+			});
+		} // for
+	}); // cj
+}
+
 
 fn main() {
     let args: Vec<String> = std::env::args().collect() ;
 
-	if args.len() != 5 {
-		writeln!(std::io::stderr(), "Usage: mandelbrot FILE PIXELS UPPERLEFT LOWERRIGHT")
+	if args.len() != 6 {
+		writeln!(std::io::stderr(), "Usage: mandelbrot FILE PIXELS UPPERLEFT LOWERRIGHT USETHREADS")
 			.unwrap();
 
-		writeln!(std::io::stderr(), "Example: {} mandel.png 1000x750 -1.20,0.35 -1,0.20", args[0])
+		writeln!(std::io::stderr(), "Example: {} mandel.png 1000x750 -1.20,0.35 -1,0.20 Y", args[0])
 			.unwrap();
 
 		std::process::exit(1);
@@ -163,7 +192,12 @@ fn main() {
 
 	let mut pixels = vec![0; bounds.0 * bounds.1] ;
 
-	renderBrot( &mut pixels, bounds, up_left, lo_right ) ;
+
+	if( &"Y" == &args[5].trim() ) {
+		renderBrotThreads( &mut pixels, bounds, up_left, lo_right ) ;
+    } else {
+    	renderBrot( &mut pixels, bounds, up_left, lo_right ) ;
+	}
 
 	writeImg( &args[1], &pixels, bounds ).expect( "error writing PNG file" ) ;
 }
