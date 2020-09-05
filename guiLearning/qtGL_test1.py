@@ -1,5 +1,5 @@
 
-from PySide import QtGui, QtCore, QtOpenGL
+from PySide2 import QtWidgets, QtGui, QtCore, QtOpenGL
 from OpenGL import GL, GLU, GLUT 
 import sys
 
@@ -8,7 +8,6 @@ class QGLContext( QtOpenGL.QGLWidget ):
     
     def __init__( self ):
         super( QGLContext, self ).__init__()
-        GLUT.glutInit()
         GL.glEnable( GL.GL_DEPTH_TEST)
         GL.glClearColor( 0., 0., 0., 0. )
         # Enable Lighting
@@ -31,7 +30,6 @@ class QGLContext( QtOpenGL.QGLWidget ):
         GLU.gluLookAt( 0, 2.5, 7, 0,0,0, 0,1,0 )
         GL.glMaterialfv( GL.GL_FRONT, GL.GL_DIFFUSE, [0.3, 0.2, 0.6, 1.0] )
         GL.glFrontFace( GL.GL_CW )
-        GLUT.glutSolidTeapot( 2.5 )
         GL.glFrontFace( GL.GL_CCW )
         GL.glPopMatrix()
         GL.glFlush()
@@ -48,7 +46,7 @@ class QGLContext( QtOpenGL.QGLWidget ):
         GL.glLoadIdentity()
 
 
-class Test( QtGui.QMainWindow ):
+class Test( QtWidgets.QMainWindow ):
     def __init__( self, parent_app ):
         super( Test, self ).__init__()
         self._parent_app = parent_app
@@ -60,5 +58,5 @@ class Test( QtGui.QMainWindow ):
         self._parent_app.exec_()
 
 if __name__=="__main__":
-    app = QtGui.QApplication( sys.argv )
+    app = QtWidgets.QApplication( sys.argv )
     gl = Test( app )

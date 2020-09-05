@@ -796,12 +796,8 @@ class QtAnnotator( QtWidgets.QMainWindow ):
         self._parent = parent
 
         # variables
-
-
         self.templates = {}
-
         self.img_idx = 0
-
         self.mode = "regions"
 
         # Region Lists
@@ -810,9 +806,11 @@ class QtAnnotator( QtWidgets.QMainWindow ):
 
         # load inital data
         self._loadTemplates()
-        #self.cur_template = "person" # TODO: cfg file
+        # TODO: cfg file
 
         # Build interface
+        self._parent.setStyle( QtWidgets.QStyleFactory.create( "Fusion" ) )
+
         self.scene = QtWidgets.QGraphicsScene()
         self.view_pane = Viewer( scene=self.scene, main=self )
         self.anos = AnoTree( main=self )
